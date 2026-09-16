@@ -8,7 +8,7 @@
 <p align="center"><em>A modular foundation for production Python APIs.</em></p>
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13+">
-  <img src="https://img.shields.io/badge/typed-py.typed-D94A28?style=flat-square" alt="Typed package">
+  <a href="https://github.com/fastapi/fastapi"><img src="https://img.shields.io/badge/powered_by-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="Powered by FastAPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-202020?style=flat-square" alt="MIT License"></a>
 </p>
 
