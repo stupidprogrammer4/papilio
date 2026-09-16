@@ -1,6 +1,18 @@
 <p align="center">
-  <img src="docs/assets/logo.webp" alt="Papilio logo" width="520">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.png">
+    <img src="docs/assets/logo-light.png" alt="Papilio" width="480">
+  </picture>
 </p>
+<p align="center"><em>A modular foundation for production Python APIs.</em></p>
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13+">
+  <img src="https://img.shields.io/badge/typed-py.typed-D94A28?style=flat-square" alt="Typed package">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-202020?style=flat-square" alt="MIT License"></a>
+</p>
+
+---
 
 **[Documentation](docs/index.md)** — step-by-step guides, runnable examples and API reference.
 
