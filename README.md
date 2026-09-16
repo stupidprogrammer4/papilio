@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.webp" alt="Papilio logo" width="320">
+</p>
+
 # Papilio
 
 **[Documentation](docs/index.md)** — step-by-step guides, runnable examples and API reference.
