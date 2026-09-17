@@ -30,7 +30,9 @@ BigIntType = Annotated[int, Field(ge=INT64_MIN, le=INT64_MAX)]
 UBigIntType = Annotated[int, Field(ge=0, le=UINT64_MAX)]
 RateType = Annotated[float, Field(ge=0, le=1)]
 RialType = Annotated[int, Field(ge=0, le=INT64_MAX)]
-SlugType = Annotated[str, Field(pattern=r"^[a-z0-9\-]{2,55}")]
+SlugType = Annotated[
+    str, Field(min_length=2, max_length=55, pattern=r"^[a-z0-9-]+$")
+]
 # A variable-like machine name: lowercase letters and underscores only, <= 35.
 ColorType = Annotated[
     str, Field(pattern=r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")

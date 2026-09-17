@@ -33,7 +33,7 @@ async def external_error_handler(
             "RateLimit-Remaining": str(exc.remaining),
         }
     return JSONResponse(
-        content=response_model.model_dump(exclude_defaults=True),
+        content=response_model.model_dump(mode="json", exclude_defaults=True),
         status_code=exc.status_code,
         media_type=MediaType.JSON,
         headers=headers,

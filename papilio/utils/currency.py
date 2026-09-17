@@ -67,6 +67,10 @@ def with_bubble(intrinsic: int, bubble: int) -> int:
 def to_rial(value: QuotedAmount) -> int:
     """Parse a quoted amount into whole rial.
 
+    Strings are parsed exactly as Decimal before rounding. Exact halfway
+    values round to the even integer; native numeric inputs keep their
+    precision.
+
     Args:
         value (QuotedAmount): A number, or a string in Persian or English
             digits.
@@ -81,8 +85,8 @@ def to_rial(value: QuotedAmount) -> int:
         number = _numeric(value)
     else:
         try:
-            number = float(text)
-        except ValueError:
+            number = Decimal(text)
+        except InvalidOperation:
             raise ValueError(f"non-numeric amount: {value!r}") from None
     rial = round(number)
     return rial

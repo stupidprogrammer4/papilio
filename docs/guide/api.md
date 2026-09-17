@@ -18,34 +18,27 @@ Use Pydantic validators for cross-field input rules. `data.to_row()` includes on
 
 ## Query models
 
-`BaseQuery` gives list fields `name[]` aliases. Fields listed in `__mapped__` use `name{}` aliases when their type is `list[str]`:
+`BaseQuery` accepts explicit field aliases and Python field names. Declare query names with `Field(alias=...)`. Use `QueryPair` for a `<key>:<value>` string that should become a pair of nonnegative integers during validation:
 
 ```python
-from typing import Annotated, ClassVar
+from typing import Annotated
 from fastapi import APIRouter, Query
-from pydantic import Field, field_validator
-from papilio.api.requests.queries import BaseQuery, pairs_read
+from pydantic import Field
+from papilio.api.requests.queries import BaseQuery, QueryPair, pairs_folded
 
 
 class ProductQuery(BaseQuery):
-    __mapped__: ClassVar[tuple[str, ...]] = ("picks",)
-    ids: list[int] = Field(default_factory=list)
-    picks: list[str] = Field(default_factory=list)
+    ids: list[int] = Field(default_factory=list, alias="ids[]")
+    picks: list[QueryPair] = Field(default_factory=list, alias="picks{}")
     page: int = Field(default=1, ge=1)
     per_page: int = Field(default=20, ge=1, le=100)
-
-    @field_validator("picks")
-    @classmethod
-    def validate_picks(cls, value: list[str]) -> list[str]:
-        return pairs_read(value)
-
 
 router = APIRouter()
 
 
 @router.get("/filters")
 async def filters(query: Annotated[ProductQuery, Query()]):
-    return {"ids": query.ids, "picks": query.folded("picks")}
+    return {"ids": query.ids, "picks": pairs_folded(query.picks)}
 ```
 
 Example query string:
@@ -54,7 +47,11 @@ Example query string:
 /filters?ids%5B%5D=1&ids%5B%5D=2&picks%7B%7D=10:20&picks%7B%7D=10:21
 ```
 
-The picks fold to `{10: [20, 21]}` before JSON serialization. Register `pairs_read` explicitly; `folded` expects validated pairs. Query alias setup happens at class creation.
+After validation, `query.picks` is `[(10, 20), (10, 21)]`. `pairs_folded(query.picks)` groups those pairs into `{10: [20, 21]}` before JSON serialization, preserving value order and duplicates. An omitted list defaults to empty. No per-model pair validator is needed; OpenAPI describes the repeated input as strings.
+
+Both parts must contain decimal digits. Zero, leading zeros and Persian decimal digits are accepted; signs, whitespace, missing or extra separators and numbers exceeding Python's integer-string conversion limit are rejected with HTTP 422 at the failing list item. Python construction also takes raw strings, for example `ProductQuery.model_validate({"picks": ["10:20"]})`; already-parsed tuples are not accepted as `QueryPair` input.
+
+Migration: replace automatic list aliases with explicit `Field(alias=...)`, replace pair fields of type `list[str]` with `list[QueryPair]`, and remove `__mapped__` and validators calling `pairs_read`. Replace `query.folded("picks")` with `pairs_folded(query.picks)`. The grouping helper now accepts integer pairs, not raw strings. `BaseQuery` no longer rewrites fields or creates aliases automatically.
 
 ## Output schemas and envelopes
 
@@ -79,6 +76,33 @@ Serialized result:
 ```
 
 `BaseOutput.from_obj` and `from_objs` validate output from objects. At an endpoint, declare `response_model=APIResponse[ProductOut, None]` so FastAPI validates and documents the response. Absent optional envelope fields are omitted; `data` itself can remain null on error responses.
+
+## Patch and deletion results
+
+`PatchResult[T, P]` carries a result of type `T` and an applied patch of type
+`P`. `DeleteResult[T]` carries a deletion result. Both are plain frozen, slotted
+dataclasses, like `PagedType` and `BatchResultType`. They retain the supplied
+Python objects without validation or conversion.
+
+```python
+from papilio.schemas.results import DeleteResult, PatchResult
+
+
+patched = PatchResult[int, dict[str, str | None]](
+    affected=1,
+    value=42,
+    patch={"title": None},
+)
+
+deleted = DeleteResult[None](affected=3, value=None)
+```
+
+`affected=None` represents an unknown count; zero represents a known zero.
+The application supplies the result and applied patch, which can also use its
+own before/after representation. An affected count alone does not prove that
+stored values changed. Validation, public output schemas and serialization
+belong to the application, just as they do for the other result containers.
+At an HTTP boundary, explicitly map the result into your chosen output schema.
 
 ## Pagination metadata
 
@@ -134,6 +158,6 @@ The default app handlers convert it to an error envelope with HTTP 404.
 
 ## Services and reusable schemas
 
-`Checks` and `IDChecks` provide protected validation/existence helpers for subclasses. They do not define your transaction or publish policy. `PagedType` and `BatchResultType` are internal result containers; HTTP metadata and envelopes are separate. Utilities such as enum output schemas are listed in the [schema reference](../reference/schemas.md).
+`Checks` and `IDChecks` provide protected validation/existence helpers for subclasses. They do not define your transaction or publish policy. `PagedType`, `BatchResultType`, `PatchResult` and `DeleteResult` are internal result containers; HTTP metadata and envelopes are separate. Utilities such as enum output schemas are listed in the [schema reference](../reference/schemas.md).
 
 [Complete API reference](../reference/api.md)

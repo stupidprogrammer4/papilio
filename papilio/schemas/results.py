@@ -5,6 +5,23 @@ from typing import Generic, Sequence, TypeVar
 
 
 @dataclass(frozen=True, slots=True)
+class PatchResult[T, P]:
+    """A result and its applied patch, without validation or conversion."""
+
+    affected: int | None
+    value: T
+    patch: P
+
+
+@dataclass(frozen=True, slots=True)
+class DeleteResult[T]:
+    """A deletion result, without validation or conversion."""
+
+    affected: int | None
+    value: T
+
+
+@dataclass(frozen=True, slots=True)
 class BatchResultType[T, E]:
     """A clean, named return value for batch lookups — a typed stand-in for a
     bare tuple, no validation. Carries the resolved ``items``, the per-item

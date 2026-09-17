@@ -87,39 +87,34 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 ## `papilio.api.requests.queries`
 
-### `pairs_read`
+### `QueryPair`
 
 ```python
-def pairs_read(value: Sequence[str]) -> list[str]:
-    ...
+QueryPair = Annotated[
+    tuple[int, int],
+    BeforeValidator(_parse_pair, json_schema_input_type=str),
+]
 ```
+
+A string-input type for `<key>:<value>` query parameters. Validates and converts decimal digits to a pair of nonnegative integers. Rejects malformed or unconvertible input during model validation; a list field reports the failing item index. OpenAPI exposes string input. Python model construction also requires raw strings, not tuples.
 
 ### `pairs_folded`
 
 ```python
-def pairs_folded(value: Sequence[str]) -> dict[int, list[int]]:
+def pairs_folded(value: Sequence[tuple[int, int]]) -> dict[int, list[int]]:
     ...
 ```
+
+Groups already-validated pairs by key, preserving value order and duplicates. Does not parse strings.
 
 ### `BaseQuery`
 
 ```python
 class BaseQuery(BaseDTO):
     model_config = ConfigDict(populate_by_name=True)
-    __mapped__: ClassVar[tuple[str, ...]] = ()
-    __maps__: ClassVar[tuple[str, ...]] = ()
-
-    @classmethod
-    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
-        ...
-
-    @staticmethod
-    def _carried(annotation: Any) -> Any:
-        ...
-
-    def folded(self, name: str) -> dict[int, list[int]]:
-        ...
 ```
+
+Thin input model with explicit aliases and field-name population. Declare aliases with `Field(alias=...)`; no automatic naming or pair-field registration. See the [query guide](../guide/api.md#query-models) for usage and migration.
 
 ## `papilio.api.responses.envelope`
 

@@ -208,8 +208,12 @@ RialType = Annotated[int, Field(ge=0, le=INT64_MAX)]
 ```
 
 ```python
-SlugType = Annotated[str, Field(pattern='^[a-z0-9\\-]{2,55}')]
+SlugType = Annotated[
+    str, Field(min_length=2, max_length=55, pattern=r"^[a-z0-9-]+$")
+]
 ```
+
+Slugs contain 2–55 ASCII lowercase letters, digits or hyphens. The entire string must match; no trimming or case conversion is performed. Leading, trailing and repeated hyphens remain allowed.
 
 ```python
 ColorType = Annotated[str, Field(pattern='^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$')]
@@ -397,6 +401,8 @@ def with_bubble(intrinsic: int, bubble: int) -> int:
 def to_rial(value: QuotedAmount) -> int:
     ...
 ```
+
+Normalizes Persian digits and supported separators, then parses strings with `Decimal` to preserve their precision before rounding to whole rial. Exact halfway values round to the even integer (`"2.5"` → `2`, `"3.5"` → `4`). Native `int`, `float` and `Decimal` inputs retain their existing rounding behavior; precision already lost in a supplied float cannot be recovered. Malformed strings raise `ValueError`.
 
 ### `to_decimal`
 

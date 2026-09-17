@@ -229,6 +229,35 @@ class EnumGroupOut(BaseOutput):
 
 ## `papilio.schemas.results`
 
+### `PatchResult`
+
+```python
+@dataclass(frozen=True, slots=True)
+class PatchResult[T, P]:
+    affected: int | None
+    value: T
+    patch: P
+```
+
+The application supplies the result and the patch it applied. `affected=None`
+means unknown; zero is a known zero. The count does not establish that old and
+new values differ. This dataclass retains supplied objects without validation,
+coercion or serialization.
+
+### `DeleteResult`
+
+```python
+@dataclass(frozen=True, slots=True)
+class DeleteResult[T]:
+    affected: int | None
+    value: T
+```
+
+Both fields are required, with the same count semantics. `T` can be any
+application-selected type. Like the other result containers, this dataclass
+does not validate, convert or serialize its payload. See the
+[operation result examples](../guide/api.md#patch-and-deletion-results).
+
 ### `BatchResultType`
 
 ```python

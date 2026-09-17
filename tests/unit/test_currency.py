@@ -1,7 +1,7 @@
 """Parsing a quoted price — the point where a bad string must fail loudly
 rather than become a zero."""
 
-from decimal import Decimal
+from decimal import Decimal, localcontext
 
 import pytest
 
@@ -20,6 +20,52 @@ from papilio.utils import currency as cu
 )
 def test_a_quoted_amount_parses_to_whole_rial(value, expected) -> None:
     assert cu.to_rial(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("9007199254740993", 9007199254740993),
+        ("9223372036854775807", 9223372036854775807),
+        ("-9007199254740993", -9007199254740993),
+        (" ۹,۰۰۷,۱۹۹,۲۵۴,۷۴۰,۹۹۳ ", 9007199254740993),
+        ("۹،۰۰۷،۱۹۹،۲۵۴،۷۴۰،۹۹۳", 9007199254740993),
+        ("9.007199254740993e15", 9007199254740993),
+        ("1.49999999999999999", 1),
+        ("2.50000000000000001", 3),
+        ("-1.49999999999999999", -1),
+        ("-2.50000000000000001", -3),
+        ("2.5", 2),
+        ("3.5", 4),
+        ("-2.5", -2),
+        ("-3.5", -4),
+    ],
+)
+def test_rial_text_retains_precision_before_rounding(value, expected) -> None:
+    assert cu.to_rial(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (9007199254740993, 9007199254740993),
+        (9007199254740992.0, 9007199254740992),
+        (2.5, 2),
+        (3.5, 4),
+        (-2.5, -2),
+        (Decimal("9007199254740993"), 9007199254740993),
+        (Decimal("2.50000000000000001"), 3),
+    ],
+)
+def test_native_rial_numbers_keep_their_rounding(value, expected) -> None:
+    assert cu.to_rial(value) == expected
+
+
+def test_rial_text_precision_does_not_depend_on_decimal_context() -> None:
+    with localcontext() as context:
+        context.prec = 6
+        assert cu.to_rial("9007199254740993") == 9007199254740993
+        assert cu.to_rial("2.50000000000000001") == 3
 
 
 def test_an_exact_amount_stays_exact_as_decimal() -> None:
