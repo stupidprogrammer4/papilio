@@ -23,9 +23,10 @@ Papilio provides module discovery, dependency injection, HTTP responses,
 validation, database repositories, transactions and application scaffolding.
 Task execution and messaging belong to the independent **Papilio Tasks** project.
 
-This is the local rename and extraction of Fastamu, not a published release.
-Install this checkout with `pip install -e ".[dev]"` and use `papilio` as the
-CLI command. Python imports use `papilio`.
+This checkout prepares **Papilio 1.0.0**, extracted from Fastamu.
+See the [release notes and migration guide](docs/releases/1.0.0.md).
+A prepared version does not mean the package has been published. Install this
+checkout with `pip install -e ".[dev]"`; imports and the CLI use `papilio`.
 
 ## Table of contents
 
@@ -176,9 +177,10 @@ or pass routers and providers directly to `create_app()`.
 Swagger UI is served at **`/docs`**, self-hosted from `/static/swagger` — no CDN,
 so it works on an air-gapped box.
 
-> **`config.yml` is resolved relative to the current working directory.** Always
-> launch from the project root. There is no `.env` / environment-variable override
-> layer: the YAML file is the single source of configuration.
+> **Configuration defaults to `config.yml` in the working directory.** Select
+> another file with `papilio run --config PATH` or `PAPILIO_CONFIG`. Runner flags
+> override YAML launcher options; they do not rewrite application settings.
+> There is no automatic `.env` or per-field environment override layer.
 
 ---
 

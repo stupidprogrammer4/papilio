@@ -73,4 +73,6 @@ nav:
       - Schemas, services and errors: reference/schemas.md
       - Security and utilities: reference/utilities.md
       - CLI and scaffolding: reference/scaffolding.md
+  - Release notes:
+      - Papilio 1.0.0: releases/1.0.0.md
   - Maintaining the documentation: contributing.md
