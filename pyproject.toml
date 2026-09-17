@@ -82,8 +82,17 @@ papilio = "papilio.testing.plugin"
 packages = ["papilio"]
 
 [tool.hatch.build.targets.sdist]
-# Include documentation and tests in the source distribution.
-include = ["papilio", "tests", "README.md", "LICENSE", "pytest.ini", "docs", "mkdocs.yml"]
+# Select project-root paths, including documentation and tests.
+only-include = [
+    "papilio",
+    "tests",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "pytest.ini",
+    "mkdocs.yml",
+    "pyproject.toml",
+]
 
 # pytest configuration lives in pytest.ini (single source of truth — pytest.ini
 # takes precedence over pyproject, so do not re-add [tool.pytest.ini_options]).
