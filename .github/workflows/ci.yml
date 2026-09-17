@@ -1,0 +1,294 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+    env:
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      FASTAMU_TEST_POSTGRESQL: postgresql+asyncpg://postgres:papilio-test@127.0.0.1:5432/papilio_test
+      FASTAMU_TEST_POSTGRESQL_URL: postgresql+asyncpg://postgres:papilio-test@127.0.0.1:5432/papilio_test
+      FASTAMU_TEST_MYSQL: mysql+asyncmy://root:papilio-test@127.0.0.1:3306/papilio_test
+      FASTAMU_TEST_MARIADB: mysql+asyncmy://root:papilio-test@127.0.0.1:3307/papilio_test
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: papilio-test
+          POSTGRES_DB: papilio_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d papilio_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: papilio-test
+          MYSQL_DATABASE: papilio_test
+          MYSQL_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ppapilio-test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: papilio-test
+          MARIADB_DATABASE: papilio_test
+          MARIADB_ROOT_HOST: "%"
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install test, documentation and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes unixodbc
+          python -m pip install --upgrade pip
+          python -m pip install '.[dev,docs]' hatchling build twine
+          python -m pip check
+      - name: Check style, types and documentation
+        run: |
+          ruff check papilio tests
+          ruff format --check papilio tests
+          pyright
+          python -m mkdocs build --strict
+      - name: Configure the disposable test database
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import yaml
+          from papilio.core.config import Settings
+          config = yaml.safe_load(Path("docs/examples/minimal.yml").read_text())
+          dsn = os.environ["FASTAMU_TEST_POSTGRESQL"]
+          config["db"] = dict(dsn=dsn, test_dsn=dsn, pool_size=2,
+                              max_overflow=0, pool_timeout=5, pool_recycle=1800)
+          # Shared-client tests mock Redis commands but require its config.
+          config["redis"] = dict(url="redis://127.0.0.1:1/0", max_connections=2,
+                                 socket_timeout=1, socket_connect_timeout=1,
+                                 health_check_interval=0)
+          Settings.model_validate(config)
+          with Path("config.yml").open("x") as stream:
+              yaml.safe_dump(config, stream)
+          PY
+      - name: Run all tests
+        run: >-
+          python -m pytest -p pytest_asyncio.plugin -p papilio.testing.plugin
+          --junitxml=test-results.xml
+      - name: Require expected integration coverage
+        run: |
+          python - <<'PY'
+          """Reject missing integration coverage and unexpected skips in CI."""
+
+          import xml.etree.ElementTree as ET
+
+
+          def check(path: str) -> None:
+              cases = list(ET.parse(path).getroot().iter("testcase"))
+              if not cases:
+                  raise SystemExit("No test cases reported")
+              passed = set()
+              skipped = 0
+              for case in cases:
+                  module = case.get("classname", "")
+                  name = case.get("name", "")
+                  identity = f"{module}::{name}"
+                  if case.find("failure") is not None or case.find("error") is not None:
+                      raise SystemExit(f"Failed test: {identity}")
+                  skip = case.find("skipped")
+                  if skip is None:
+                      passed.add(identity)
+                      continue
+                  reason = skip.get("message", "")
+                  allowed = False
+                  if module == "tests.unit.test_db_dialects":
+                      for backend in ("oracle", "mssql"):
+                          allowed |= name.endswith(f"[{backend}]") and reason == (
+                              f"Set FASTAMU_TEST_{backend.upper()} "
+                              "for live backend tests"
+                          )
+                      allowed |= (
+                          name
+                          in {
+                              "test_native_upsert_and_explicit_update_expressions[mysql-orm]",
+                              "test_upsert_batch_preserves_explicit_nullable_values[mysql-orm]",
+                          }
+                          and reason == "This path does not implement native upsert"
+                      )
+                      allowed |= (
+                          name.startswith(
+                              "test_postgresql_values_grid_supports_custom_join_without_id["
+                          )
+                          and name.endswith(
+                              ("[sqlite]", "[mysql-orm]", "[mysql]", "[mariadb]")
+                          )
+                          and reason == "PostgreSQL VALUES relation"
+                      )
+                  if module == "tests.unit.test_repository_fields":
+                      allowed |= (
+                          name
+                          == (
+                              "test_upserts_and_batch_updates_use_explicit_field_names"
+                              "[field_store1]"
+                          )
+                          and reason
+                          == "Only the ORM create path runs on SQLite for MySQL"
+                      )
+                      allowed |= (
+                          name.startswith(
+                              "test_mysql_bulk_insert_uses_column_mapping_and_rolls_back["
+                          )
+                          and name.endswith(
+                              ("[field_store0]", "[field_store2]", "[field_store4]")
+                          )
+                          and reason == "MySQL count-returning INSERT"
+                      )
+                  if not allowed:
+                      raise SystemExit(f"Unexpected skip: {identity}: {reason}")
+                  skipped += 1
+              required = {
+                  "tests.integration.test_database::test_database_is_migrated_and_reachable",
+                  "tests.unit.test_distribution::test_distribution_excludes_local_copies_and_roundtrips",
+                  "tests.integration.test_scaffold_runtime::test_generated_sql_routes_and_query_tools[False]",
+                  "tests.integration.test_scaffold_runtime::test_generated_sql_routes_and_query_tools[True]",
+              }
+              required.update(
+                  "tests.integration.test_cli_runtime::"
+                  f"test_runner_serves_reloads_and_shuts_down[{mode}-{backend}]"
+                  for mode in ("dev", "prod")
+                  for backend in ("uvicorn", "gunicorn", "fastapi")
+              )
+              if missing := required - passed:
+                  raise SystemExit(f"Required tests did not pass: {sorted(missing)}")
+              for backend in ("postgresql", "mysql", "mariadb", "sqlite"):
+                  if not any(
+                      name.startswith("tests.unit.test_db_dialects::")
+                      and name.endswith(f"[{backend}]")
+                      for name in passed
+                  ):
+                      raise SystemExit(f"No live database tests passed for {backend}")
+              print(f"{len(passed)} passed; {skipped} explicitly allowed backend skips")
+
+
+          check("test-results.xml")
+          PY
+      - name: Build and check distributions
+        run: |
+          python -m build
+          python -m twine check --strict dist/*
+      - name: Smoke test the base-only installed wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-smoke"
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip install dist/*.whl
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip check
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wheel-smoke/bin/python" - <<'PY'
+          """Exercise a base-only wheel installation from outside the checkout."""
+
+          import subprocess
+          import sys
+          import tempfile
+          from dataclasses import is_dataclass
+          from pathlib import Path
+
+          import papilio
+          from papilio.schemas.results import DeleteResult, PatchResult
+
+          assert (
+              Path(papilio.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+          )
+          value, patch = object(), object()
+          result = PatchResult(affected=1, value=value, patch=patch)
+          assert is_dataclass(result) and result.value is value and result.patch is patch
+          assert DeleteResult(affected=0, value=None).value is None
+
+          with tempfile.TemporaryDirectory() as directory:
+              subprocess.run(
+                  [str(Path(sys.executable).with_name("papilio")), "--help"],
+                  cwd=directory,
+                  check=True,
+              )
+              subprocess.run(
+                  [sys.executable, "-m", "papilio.cli", "run", "--help"],
+                  cwd=directory,
+                  check=True,
+              )
+              from papilio.scaffolding.project import write
+
+              write(Path(directory), "sample", "Sample")
+              subprocess.run(
+                  [
+                      sys.executable,
+                      "-c",
+                      "import asyncio\n"
+                      "from sample.main import app\n"
+                      "assert app.title == 'Sample'\n"
+                      "assert app.openapi()['info']['title'] == 'Sample'\n"
+                      "async def run():\n"
+                      "    async with app.router.lifespan_context(app):\n"
+                      "        pass\n"
+                      "asyncio.run(run())\n",
+                  ],
+                  cwd=directory,
+                  check=True,
+              )
+          print("Installed wheel, CLI, templates, result dataclasses and app passed")
+          PY
+      - name: Collect diagnostics
+        if: always()
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+          MARIADB_CONTAINER: ${{ job.services.mariadb.id }}
+        run: |
+          mkdir -p ci-logs
+          python -m pip freeze > ci-logs/dependencies.txt
+          docker logs "$POSTGRES_CONTAINER" > ci-logs/postgres.log 2>&1 || true
+          docker logs "$MYSQL_CONTAINER" > ci-logs/mysql.log 2>&1 || true
+          docker logs "$MARIADB_CONTAINER" > ci-logs/mariadb.log 2>&1 || true
+      - name: Save test results, diagnostics and distributions
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: checks-${{ matrix.python-version }}
+          path: |
+            test-results.xml
+            ci-logs/
+            dist/
+          retention-days: 7
