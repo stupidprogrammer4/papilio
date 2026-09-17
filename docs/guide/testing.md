@@ -98,7 +98,16 @@ These commands need the `docs`, `sqlite`, `files`, `csv` and `excel` extras. The
 
 ## Framework CI
 
-The repository's `.github/workflows/ci.yml` runs on pushes, pull requests and manual dispatch. Each Ubuntu job tests Python 3.13 or 3.14 with disposable PostgreSQL 17, MySQL 8.4 and MariaDB 11.4 services; SQLite runs locally. It installs the `dev` and `docs` extras plus the build tools, checks dependencies, Ruff, Pyright and the strict documentation build, then runs the complete test suite.
+The repository's `.github/workflows/ci.yml` runs on pushes, pull requests and manual dispatch. Each Ubuntu job tests Python 3.13 or 3.14 with disposable PostgreSQL 17, MySQL 8.4 and MariaDB 11.4 services; SQLite runs locally. It installs the `dev` and `docs` extras plus the build tools, checks dependencies, Ruff, Pyright and the strict documentation build, then runs the complete test suite. Workflow YAML owns orchestration; executable checks live in `scripts/ci/`.
+
+| Script | Responsibility |
+| --- | --- |
+| `configure.py` | Create validated configuration for disposable test services without overwriting an existing file |
+| `check_results.py REPORT.xml` | Require integration coverage and reject failures or unexpected skips |
+| `smoke_wheel.py` | Verify the base-only installed wheel from outside the checkout |
+| `telegram.py` | Format and send the CI completion message using the standard library |
+
+Scripts and workflow files are included in the source archive so their tests remain runnable. They are not installed in the wheel. Script regression tests run with the regular suite, and Ruff checks both application and script code.
 
 CI writes its own `config.yml` in the fresh checkout and sets the existing `FASTAMU_TEST_POSTGRESQL`, `FASTAMU_TEST_POSTGRESQL_URL`, `FASTAMU_TEST_MYSQL` and `FASTAMU_TEST_MARIADB` variables. These point only at disposable test databases. To reproduce locally, use your own disposable databases and configure the migration fixture's `db.test_dsn` as well as those variables; the migration fixture resets the test schema. Do not run the CI configuration step over an existing application configuration.
 
@@ -108,7 +117,9 @@ Each job builds a wheel and source distribution, checks package metadata, and in
 
 ### Telegram CI notifications
 
-`.github/workflows/telegram.yml` sends the overall result after each `CI` workflow finishes, including failures and cancellations. The message contains the repository, branch, commit, triggering user and a link to the run. It sends once per completed run attempt, after the matrix finishes, rather than once per Python job. Re-running the notification workflow manually can send the message again.
+`.github/workflows/telegram.yml` sends the overall result after each `CI` workflow finishes, including failures and cancellations. English messages use a butterfly header, status emoji, bold sections, code-formatted identifiers and colored buttons for the CI run and commit. They include the run title, repository, branch, commit, triggering user, run attempt and elapsed time when event timestamps are available. The CI button opens the specific attempt and is green for success, red for failure/timeout/action required, and blue for other results. Text colors follow the user's Telegram theme; button colors depend on client support.
+
+It sends once per completed run attempt, after the matrix finishes, rather than once per Python job. Re-running the notification workflow manually can send the message again. Buttons open GitHub pages directly; no always-running bot or callback handler is needed.
 
 To enable it:
 
@@ -116,4 +127,6 @@ To enable it:
 2. In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and set `TELEGRAM_BOT_TOKEN` to the bot token and `TELEGRAM_CHAT_ID` to the destination chat ID (including a negative sign if present). You can obtain the chat ID from a bot update using Telegram's [getUpdates](https://core.telegram.org/bots/api#getupdates) method after messaging the bot; do not commit the token.
 3. Put both workflows on the default branch, then run CI. GitHub's [`workflow_run` trigger](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run) requires the notification workflow to exist on the default branch.
 
-Missing secrets produce a notice and no message. A Telegram/network error fails only the notification workflow; the original CI result stays unchanged. Delivery uses Telegram's [sendMessage](https://core.telegram.org/bots/api#sendmessage) API. The workflow reads event metadata without checking out application or pull-request code and needs no GitHub token permissions.
+Missing secrets produce a notice and no message. A Telegram/network error fails only the notification workflow; the original CI result stays unchanged. Delivery uses Telegram's [sendMessage](https://core.telegram.org/bots/api#sendmessage) API with HTML formatting and an inline keyboard. Event text is escaped and bounded, and button URLs are constructed from validated GitHub identifiers. Errors never print the bot token or request URL.
+
+The notification workflow uses read-only repository contents permission to fetch `scripts/ci/` from `github.workflow_sha`, the commit containing the notification workflow itself. It does not check out the triggering PR's commit or consume its artifacts. Checkout does not persist credentials; Telegram secrets are passed only to the sending step.

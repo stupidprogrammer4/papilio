@@ -21,7 +21,7 @@ def test_distribution_excludes_local_copies_and_roundtrips(
     root = Path(__file__).resolve().parents[2]
     project = tmp_path / "project"
     project.mkdir()
-    for name in ("papilio", "tests", "docs"):
+    for name in ("papilio", "tests", "docs", "scripts", ".github/workflows"):
         ignored = ["__pycache__", "*.pyc"]
         if name == "docs":
             ignored.append("plans")  # Already excluded by .gitignore.
@@ -50,10 +50,12 @@ def test_distribution_excludes_local_copies_and_roundtrips(
     assert "papilio/scaffolding/templates/project/main.tpl" in expected
     assert "tests/unit/test_distribution.py" in expected
     assert "docs/guide/api.md" in expected
+    assert "scripts/ci/telegram.py" in expected
+    assert ".github/workflows/telegram.yml" in expected
 
     # Local excludes protect Git, but must not substitute for build selection.
     nested = project / ".local-review" / "backup"
-    for folder in ("papilio", "tests", "docs"):
+    for folder in ("papilio", "tests", "docs", "scripts", ".github/workflows"):
         (nested / folder).mkdir(parents=True)
         (nested / folder / "local.txt").write_text("local-only fixture\n")
     for name in root_files:

@@ -5,78 +5,23 @@ on:
     workflows: [CI]
     types: [completed]
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   notify:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
+      - name: Get trusted notification script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Use this workflow's version, never the triggering PR's commit.
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: scripts/ci
       - name: Send CI result to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        # Read event metadata only; never check out or execute the CI's code.
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import sys
-          from pathlib import Path
-          from urllib.error import HTTPError, URLError
-          from urllib.request import Request, urlopen
-
-          token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-          chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-          if not token or not chat_id:
-              print("::notice::Telegram notification skipped: configure TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.")
-              sys.exit(0)
-
-          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
-          run = event["workflow_run"]
-          conclusion = run.get("conclusion") or "unknown"
-          icon = {
-              "success": "✅",
-              "failure": "❌",
-              "cancelled": "⏹️",
-              "timed_out": "⏰",
-              "action_required": "⚠️",
-              "skipped": "⏭️",
-              "neutral": "➖",
-          }.get(conclusion, "🔔")
-
-          def label(value):
-              return " ".join(str(value or "unknown").split())[:200]
-
-          actor = run.get("triggering_actor") or run.get("actor") or {}
-          text = "\n".join([
-              f"{icon} CI: {label(conclusion).upper()}",
-              f"Repository: {label(event['repository']['full_name'])}",
-              f"Branch: {label(run.get('head_branch'))}",
-              f"Commit: {label(run.get('head_sha'))[:12]}",
-              f"Triggered by: {label(actor.get('login'))} ({label(run.get('event'))})",
-              f"Run: #{run['run_number']} · attempt {run.get('run_attempt', 1)}",
-              run["html_url"],
-          ])
-          payload = {
-              "chat_id": chat_id,
-              "text": text,
-              "link_preview_options": {"is_disabled": True},
-          }
-          request = Request(
-              f"https://api.telegram.org/bot{token}/sendMessage",
-              data=json.dumps(payload).encode("utf-8"),
-              headers={"Content-Type": "application/json"},
-              method="POST",
-          )
-          try:
-              with urlopen(request, timeout=20) as response:
-                  result = json.load(response)
-          except HTTPError as exc:
-              sys.exit(f"Telegram notification failed (HTTP {exc.code}).")
-          except (URLError, OSError, ValueError):
-              sys.exit("Telegram notification failed: network error or invalid API response.")
-          if not isinstance(result, dict) or result.get("ok") is not True:
-              sys.exit("Telegram API did not accept the notification.")
-          print("Telegram notification sent.")
-          PY
+        run: python3 scripts/ci/telegram.py

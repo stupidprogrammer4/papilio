@@ -90,6 +90,8 @@ only-include = [
     "papilio",
     "tests",
     "docs",
+    "scripts",
+    ".github/workflows",
     "README.md",
     "LICENSE",
     "pytest.ini",
