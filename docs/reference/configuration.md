@@ -29,6 +29,31 @@ class FastAPIConfig(BaseModel):
     version: str
 ```
 
+### `RunBackend`, `RunMode` and `RunConfig`
+
+```python
+class RunBackend(StrEnum):
+    UVICORN = 'uvicorn'
+    GUNICORN = 'gunicorn'
+    FASTAPI = 'fastapi'
+
+class RunMode(StrEnum):
+    DEV = 'dev'
+    PROD = 'prod'
+
+class RunConfig(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    entrypoint: str | None = None
+    backend: RunBackend = RunBackend.UVICORN
+    mode: RunMode = RunMode.DEV
+    host: str | None = Field(default=None, min_length=1)
+    port: int = Field(default=8000, ge=1, le=65535)
+    workers: int = Field(default=1, ge=1)
+    reload: bool | None = None
+```
+
+The CLI resolves omitted host/reload values after applying overrides and validates mode/worker combinations. See [operations](../guide/operations.md).
+
 ### `DatabaseConfig`
 
 ```python
@@ -128,6 +153,7 @@ class LoggingConfig(BaseModel):
 class Settings(BaseModel):
     model_config = ConfigDict(extra='forbid')
     app: AppConfig = AppConfig()
+    run: RunConfig = Field(default_factory=RunConfig)
     fastapi: FastAPIConfig
     db: DatabaseConfig | None = None
     crypto: CryptoConfig | None = None
@@ -181,6 +207,8 @@ def get_settings(model: type[SettingsT]) -> SettingsT:
 def get_settings(model: type[SettingsT] | None=None) -> SettingsT | Settings:
     ...
 ```
+
+Reads `PAPILIO_CONFIG` or defaults to `config.yml`. Results are cached by the `model` argument; changing the environment or file does not invalidate the cache. Custom `app.settings` resolution remains supported.
 
 ## `papilio.tools.rate_limit.config`
 

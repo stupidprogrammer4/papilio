@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from enum import StrEnum
 from functools import lru_cache
 from importlib import import_module
@@ -28,6 +29,31 @@ class FastAPIConfig(BaseModel):
     title: str
     description: str
     version: str
+
+
+class RunBackend(StrEnum):
+    UVICORN = "uvicorn"
+    GUNICORN = "gunicorn"
+    FASTAPI = "fastapi"
+
+
+class RunMode(StrEnum):
+    DEV = "dev"
+    PROD = "prod"
+
+
+class RunConfig(BaseModel):
+    """Launcher options; omitted host/reload follow the selected mode."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entrypoint: str | None = None
+    backend: RunBackend = RunBackend.UVICORN
+    mode: RunMode = RunMode.DEV
+    host: str | None = Field(default=None, min_length=1)
+    port: int = Field(default=8000, ge=1, le=65535)
+    workers: int = Field(default=1, ge=1)
+    reload: bool | None = None
 
 
 class DatabaseConfig(BaseModel):
@@ -108,6 +134,7 @@ class Settings(BaseModel):
 
     app: AppConfig = AppConfig()
     fastapi: FastAPIConfig
+    run: RunConfig = Field(default_factory=RunConfig)
     db: DatabaseConfig | None = None
     crypto: CryptoConfig | None = None
     redis: RedisConfig | None = None
@@ -170,7 +197,7 @@ def get_settings(model: type[SettingsT]) -> SettingsT: ...
 
 @lru_cache
 def get_settings(model: type[SettingsT] | None = None) -> SettingsT | Settings:
-    path = Path("config.yml")
+    path = Path(os.environ.get("PAPILIO_CONFIG", "config.yml"))
     with path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
     selected = model or _settings_model(raw)

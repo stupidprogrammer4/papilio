@@ -1,10 +1,13 @@
 """List optional providers and show explicit application wiring."""
 
 import typer
+from rich import box
 from rich.console import Console
 from rich.table import Table
 
 from papilio.providers.catalog import PROVIDERS
+
+from .display import panel
 
 
 def providers(
@@ -13,7 +16,17 @@ def providers(
     ),
 ) -> None:
     if name is None:
-        table = Table("Name", "Provider", "Dependencies", "Install extra")
+        table = Table(
+            "Name",
+            "Provider",
+            "Dependencies",
+            "Install extra",
+            title="Papilio · Providers",
+            title_style="bold cyan",
+            header_style="bold cyan",
+            box=box.ROUNDED,
+            row_styles=["", "dim"],
+        )
         for spec in PROVIDERS:
             missing = spec.missing()
             table.add_row(
@@ -35,6 +48,9 @@ def providers(
         raise typer.BadParameter(
             "Choose one of: " + ", ".join(item.name for item in PROVIDERS)
         )
+    panel(
+        spec.name, [f"Provider: {spec.cls}", f"Extra: papilio[{spec.extra}]"]
+    )
     missing = spec.missing()
     if missing:
         typer.echo("Missing dependencies: " + ", ".join(missing))

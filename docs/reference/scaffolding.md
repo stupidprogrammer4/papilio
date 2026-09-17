@@ -7,8 +7,25 @@ Single-underscore methods are protected extension tools. For inherited methods, 
 ## `papilio.cli.app`
 
 ```python
-app = typer.Typer(help='Papilio project CLI', no_args_is_help=True)
+app: typer.Typer
 ```
+
+`papilio --help` groups commands for building, running and exploring applications. `papilio --version` prints the installed package version.
+
+## `papilio run`
+
+| Option | Purpose |
+| --- | --- |
+| `--app module:app` | ASGI application object |
+| `--backend uvicorn\|gunicorn\|fastapi` | Native server launcher |
+| `--mode dev\|prod` | Development or production defaults |
+| `--host ADDRESS` | Listening address |
+| `--port INTEGER` | Listening port, 1–65535 |
+| `--workers INTEGER` | Positive worker count; dev requires one |
+| `--reload / --no-reload` | Restart after code changes |
+| `--config PATH` | Selected YAML configuration |
+
+See [runner installation, configuration and precedence](../guide/operations.md).
 
 ## `papilio.cli.modules`
 

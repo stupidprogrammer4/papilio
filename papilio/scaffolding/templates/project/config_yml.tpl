@@ -4,6 +4,13 @@ app:
   features:
     - cqrs
 
+run:
+  entrypoint: "<<PKG>>.main:app"
+  backend: uvicorn
+  mode: dev
+  host: 127.0.0.1
+  port: 8000
+
 fastapi:
   title: ""
   description: ""

@@ -17,6 +17,8 @@ On PowerShell, activate with `.venv\Scripts\Activate.ps1`. Run `python` and `pap
 | Extra | Includes |
 | --- | --- |
 | `server` | Uvicorn ASGI server |
+| `server-gunicorn` | Gunicorn 26.2+ and native ASGI worker (Unix) |
+| `server-fastapi` | FastAPI CLI and Uvicorn |
 | `db` | SQLAlchemy, SQLModel and Alembic, without a database driver |
 | `postgresql` | SQL support and PostgreSQL drivers |
 | `mysql` / `mariadb` | SQL support and asyncmy |
@@ -87,7 +89,9 @@ papilio new garden --dir /tmp/papilio-learning/garden
 cd /tmp/papilio-learning/garden
 python -m pip install -e .
 papilio module greeting --plain
-python -m uvicorn garden.main:app --reload
+papilio run
 ```
 
 Run the server from the generated project root, where `config.yml` lives. The plain template provides structure; implement its service behavior yourself. Continue with the [complete SQL feature tutorial](tutorial.md).
+
+Set the listening address with `papilio run --host 127.0.0.1 --port 8080` or `run.host` / `run.port` in YAML. See [operations](operations.md) for backend selection, modes and alternate configuration files.

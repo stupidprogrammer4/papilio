@@ -13,10 +13,17 @@ pip install -e ".[dev]"
 cp config.yml.sample config.yml     # configure the selected services and secrets
 <<MIGRATE>>
 
-uvicorn <<PKG>>.main:app --reload
+papilio run
 ```
 
 Swagger UI is at `/docs`.
+
+The `run` section of `config.yml` selects the entrypoint, backend, mode, host
+and port. CLI options override it, for example
+`papilio run --mode prod --host 0.0.0.0 --workers 4`.
+Install `papilio[server-gunicorn]` or `papilio[server-fastapi]` to select
+`--backend gunicorn` (Unix) or `--backend fastapi`. `--config PATH` selects
+the same YAML file for both the launcher and application workers.
 
 Writing application methods use `@transactional` from
 `papilio.infra.db.tools.decorators`. Request scope only manages session

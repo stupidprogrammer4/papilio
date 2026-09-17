@@ -88,6 +88,8 @@ pip install -e ".[test]"
 | Extra | Capability |
 |---|---|
 | `server` | Uvicorn |
+| `server-gunicorn` | Gunicorn 26.2+ with native ASGI worker (Unix) |
+| `server-fastapi` | FastAPI CLI with Uvicorn |
 | `db` | SQLModel, SQLAlchemy and Alembic, without a database driver |
 | `postgresql`, `mysql`, `mariadb`, `sqlite`, `mssql`, `oracle` | SQL tools plus the selected driver |
 | `es` | Elasticsearch client, documents and store |
@@ -158,7 +160,7 @@ pip install -e ".[dev]"
 alembic upgrade head
 
 # 4) API — the entry point generated in your project
-uvicorn shop.main:app --reload
+papilio run
 
 ```
 
@@ -242,7 +244,7 @@ all depend on `domain`; `domain` knows nothing about HTTP, SQL or Elasticsearch.
 ## Application construction
 
 The application belongs to your project. `papilio new shop` generates
-`shop/main.py`; run it with `uvicorn shop.main:app`. The framework has no global
+`shop/main.py`; run it with `papilio run`. The framework has no global
 ASGI application.
 
 ```python

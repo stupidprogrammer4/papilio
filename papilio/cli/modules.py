@@ -9,6 +9,8 @@ import typer
 from papilio.core.config import get_settings
 from papilio.scaffolding import modules
 
+from .display import error, panel
+
 
 def _target_package() -> tuple[str, Path]:
     """Resolve the current application's module package."""
@@ -64,12 +66,12 @@ def module(
             http=http,
             excel=excel,
         )
-    except ValueError as error:
-        raise typer.BadParameter(str(error)) from error
-    except FileExistsError as error:
-        typer.secho(str(error), fg=typer.colors.RED)
-        raise typer.Exit(1) from error
-    typer.secho(f"Created module at {target}", fg=typer.colors.GREEN)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    except FileExistsError as exc:
+        error(str(exc))
+        raise typer.Exit(1) from exc
+    panel("Module created", [f"Created module at {target}"], style="green")
     extras = set() if plain else {"postgresql"}
     if cqrs:
         extras.add("es")

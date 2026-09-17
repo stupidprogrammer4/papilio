@@ -7,6 +7,8 @@ import typer
 from papilio.scaffolding import project
 from papilio.scaffolding.options import Infrastructure
 
+from .display import error, panel
+
 
 def new(
     name: str = typer.Argument(..., help="Project name"),
@@ -20,14 +22,20 @@ def new(
     root = Path(directory) if directory else Path(package)
     try:
         project.write(root, package, name, cqrs=cqrs, infra=infra)
-    except ValueError as error:
-        raise typer.BadParameter(str(error)) from error
-    except FileExistsError as error:
-        typer.secho(str(error), fg=typer.colors.RED)
-        raise typer.Exit(1) from error
-    typer.secho(f"Created project at {root}", fg=typer.colors.GREEN)
-    typer.echo(
-        f'\n  cd {root}\n  pip install -e ".[dev]"\n'
-        "  # Fill in config.yml, then:\n"
-        f"  uvicorn {package}.main:app --reload"
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    except FileExistsError as exc:
+        error(str(exc))
+        raise typer.Exit(1) from exc
+    panel(
+        "Project created",
+        [
+            f"Created project at {root}",
+            "",
+            f"cd {root}",
+            'pip install -e ".[dev]"',
+            "Edit config.yml, then:",
+            "papilio run",
+        ],
+        style="green",
     )
