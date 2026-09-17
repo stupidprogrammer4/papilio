@@ -6,7 +6,7 @@ They are repository tooling, not part of the installed Papilio package.
 
 | Script | Input | Result |
 | --- | --- | --- |
-| `configure.py` | `docs/examples/minimal.yml`, `FASTAMU_TEST_POSTGRESQL` | Creates `config.yml` exclusively for disposable CI services; refuses to overwrite a file. |
+| `configure.py` | `docs/examples/minimal.yml`, `PAPILIO_TEST_POSTGRESQL` | Creates `config.yml` exclusively for disposable CI services; refuses to overwrite a file. |
 | `check_results.py REPORT.xml` | Pytest JUnit XML | Rejects failed or missing required tests and unexpected skips. |
 | `smoke_wheel.py` | Base-only wheel environment | Checks installed package provenance, result containers, CLI, generated app and lifespan. Run from outside the checkout. |
 | `telegram.py` | `GITHUB_EVENT_PATH`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Sends one English HTML summary with status-colored URL buttons; missing secrets skip successfully. |

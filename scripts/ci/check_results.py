@@ -24,7 +24,7 @@ def check(path: str) -> None:
         if module == "tests.unit.test_db_dialects":
             for backend in ("oracle", "mssql"):
                 allowed |= name.endswith(f"[{backend}]") and reason == (
-                    f"Set FASTAMU_TEST_{backend.upper()} "
+                    f"Set PAPILIO_TEST_{backend.upper()} "
                     "for live backend tests"
                 )
             allowed |= (

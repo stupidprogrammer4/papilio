@@ -10,7 +10,7 @@ from papilio.core.config import Settings
 
 def main() -> None:
     config = yaml.safe_load(Path("docs/examples/minimal.yml").read_text())
-    dsn = os.environ["FASTAMU_TEST_POSTGRESQL"]
+    dsn = os.environ["PAPILIO_TEST_POSTGRESQL"]
     config["db"] = dict(
         dsn=dsn,
         test_dsn=dsn,

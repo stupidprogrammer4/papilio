@@ -1750,8 +1750,8 @@ native JSON where supported, and serialized text on Oracle. PostgreSQL-only
 
 Repository tests exercise SQLite and the ORM flush/refresh path on SQLite.
 Native SQL compilation tests cover the database families. Set
-`FASTAMU_TEST_POSTGRESQL`, `FASTAMU_TEST_MYSQL`, `FASTAMU_TEST_MARIADB`,
-`FASTAMU_TEST_ORACLE`, or `FASTAMU_TEST_MSSQL` to run the same behavioral suite
+`PAPILIO_TEST_POSTGRESQL`, `PAPILIO_TEST_MYSQL`, `PAPILIO_TEST_MARIADB`,
+`PAPILIO_TEST_ORACLE`, or `PAPILIO_TEST_MSSQL` to run the same behavioral suite
 against actual servers. Compilation and SQLite tests do not establish live
 compatibility with those servers.
 

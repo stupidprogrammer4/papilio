@@ -12,9 +12,9 @@ from papilio.scaffolding.options import Infrastructure
 
 @pytest.mark.parametrize("cqrs", [False, True])
 def test_generated_sql_routes_and_query_tools(tmp_path, cqrs):
-    dsn = os.environ.get("FASTAMU_TEST_POSTGRESQL_URL")
+    dsn = os.environ.get("PAPILIO_TEST_POSTGRESQL_URL")
     if not dsn:
-        pytest.skip("Set FASTAMU_TEST_POSTGRESQL_URL for scaffold SQL checks")
+        pytest.skip("Set PAPILIO_TEST_POSTGRESQL_URL for scaffold SQL checks")
     root = tmp_path / "shop"
     project.write(
         root, "shop", "Shop", cqrs=cqrs, infra=(Infrastructure.POSTGRESQL,)

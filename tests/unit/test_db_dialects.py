@@ -207,11 +207,11 @@ async def runtime(request, tmp_path):
     url = (
         f"sqlite+aiosqlite:///{tmp_path}/data.db"
         if backend in ("sqlite", "mysql-orm")
-        else os.environ.get(f"FASTAMU_TEST_{backend.upper()}")
+        else os.environ.get(f"PAPILIO_TEST_{backend.upper()}")
     )
     if not url:
         pytest.skip(
-            f"Set FASTAMU_TEST_{backend.upper()} for live backend tests"
+            f"Set PAPILIO_TEST_{backend.upper()} for live backend tests"
         )
     uow_factories = {
         "sqlite": SQLiteUnitOfWork,

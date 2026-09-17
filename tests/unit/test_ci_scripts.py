@@ -269,7 +269,7 @@ def test_report_guard_accepts_complete_coverage_and_documented_skip(report):
     ET.SubElement(
         case,
         "skipped",
-        message="Set FASTAMU_TEST_ORACLE for live backend tests",
+        message="Set PAPILIO_TEST_ORACLE for live backend tests",
     )
     ET.ElementTree(suite).write(path)
     check_results.check(str(path))
@@ -320,7 +320,7 @@ def test_configure_uses_disposable_dsn_and_never_overwrites(
     target.write_text(sample)
     monkeypatch.chdir(tmp_path)
     dsn = "postgresql+asyncpg://postgres:test@127.0.0.1/papilio_test"
-    monkeypatch.setenv("FASTAMU_TEST_POSTGRESQL", dsn)
+    monkeypatch.setenv("PAPILIO_TEST_POSTGRESQL", dsn)
     configure.main()
     content = Path("config.yml").read_bytes()
     config = yaml.safe_load(content)

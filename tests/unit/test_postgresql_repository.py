@@ -103,10 +103,10 @@ async def test_single_upsert_does_not_dispatch_to_bulk(monkeypatch):
 
 @pytest.fixture
 async def postgres_tools():
-    dsn = os.getenv("FASTAMU_TEST_POSTGRESQL")
+    dsn = os.getenv("PAPILIO_TEST_POSTGRESQL")
     if not dsn:
         pytest.skip(
-            "Set FASTAMU_TEST_POSTGRESQL for live PostgreSQL tool tests"
+            "Set PAPILIO_TEST_POSTGRESQL for live PostgreSQL tool tests"
         )
     db = DBConnection(dsn, 2, 0, 5, 1800, uow_factory=PGUnitOfWork)
     created = False

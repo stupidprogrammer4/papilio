@@ -23,10 +23,10 @@ jobs:
         python-version: ["3.13", "3.14"]
     env:
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
-      FASTAMU_TEST_POSTGRESQL: postgresql+asyncpg://postgres:papilio-test@127.0.0.1:5432/papilio_test
-      FASTAMU_TEST_POSTGRESQL_URL: postgresql+asyncpg://postgres:papilio-test@127.0.0.1:5432/papilio_test
-      FASTAMU_TEST_MYSQL: mysql+asyncmy://root:papilio-test@127.0.0.1:3306/papilio_test
-      FASTAMU_TEST_MARIADB: mysql+asyncmy://root:papilio-test@127.0.0.1:3307/papilio_test
+      PAPILIO_TEST_POSTGRESQL: postgresql+asyncpg://postgres:papilio-test@127.0.0.1:5432/papilio_test
+      PAPILIO_TEST_POSTGRESQL_URL: postgresql+asyncpg://postgres:papilio-test@127.0.0.1:5432/papilio_test
+      PAPILIO_TEST_MYSQL: mysql+asyncmy://root:papilio-test@127.0.0.1:3306/papilio_test
+      PAPILIO_TEST_MARIADB: mysql+asyncmy://root:papilio-test@127.0.0.1:3307/papilio_test
     services:
       postgres:
         image: postgres:17

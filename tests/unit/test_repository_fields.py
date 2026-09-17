@@ -63,11 +63,11 @@ async def field_store(request, tmp_path):
     dsn = (
         f"sqlite+aiosqlite:///{tmp_path}/fields.db"
         if backend in ("sqlite", "mysql-orm")
-        else os.getenv(f"FASTAMU_TEST_{backend.upper()}")
+        else os.getenv(f"PAPILIO_TEST_{backend.upper()}")
     )
     if not dsn:
         pytest.skip(
-            f"Set FASTAMU_TEST_{backend.upper()} for live backend tests"
+            f"Set PAPILIO_TEST_{backend.upper()} for live backend tests"
         )
 
     class Repository(repo_type[FieldMappingEntity]):
