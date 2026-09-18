@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Allow redis-py 8 alongside 7 so Redis extras can be installed with
+  Papilio Tasks and taskiq-redis 1.2.3.
+
 ## 0.8.0
 
 - Ship no application modules or predefined application scopes; CLI templates
