@@ -7,7 +7,6 @@ from fastapi.openapi.docs import (
 )
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from swagger_ui_bundle import swagger_ui_path
 
 
 def setup_docs(
@@ -23,7 +22,9 @@ def setup_docs(
     redirect_url = app.swagger_ui_oauth2_redirect_url
     app.docs_url = docs_url
     app.mount(
-        static_url, StaticFiles(directory=swagger_ui_path), name="swagger"
+        static_url,
+        StaticFiles(packages=[("swagger_ui", "static")]),
+        name="swagger",
     )
 
     @app.get(docs_url, include_in_schema=False)
