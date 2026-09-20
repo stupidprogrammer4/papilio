@@ -154,7 +154,7 @@ The default app handlers convert it to an error envelope with HTTP 404.
 | `ConflictException` | 409 |
 | `TooManyRequestsException` | 429 |
 
-`ValidationException` takes a field location and may contain child validation errors. `ConflictException` includes the conflicting fields. Unexpected errors produce the generic server-error envelope; write application-specific translations where their meaning is known.
+`ValidationException` takes a field location and may contain child validation errors. `ConflictException` includes the conflicting fields when available. For optional SQL unique-violation translation, use the independent [`handle_conflicts` decorator](transactions.md#optional-conflict-translation). Unexpected errors produce the generic server-error envelope; write application-specific translations where their meaning is known.
 
 ## Services and reusable schemas
 

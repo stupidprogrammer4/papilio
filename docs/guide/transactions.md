@@ -69,6 +69,77 @@ Here both records are valid application inputs. Catch the SQL exception outside 
 
 The option name is `execution_options`, not `execute_options`. It passes SQLAlchemy execution options through. Do not manually commit or roll back inside a managed transaction. `refresh()` and `now()` execute real reads.
 
+## Optional conflict translation
+
+Use the independent `handle_conflicts` decorator to translate database
+unique/primary-key violations into `ConflictException` (HTTP 409). For a service
+with an injected repository and an open request UoW:
+
+```python
+from papilio.infra.db.tools.conflicts import handle_conflicts
+from papilio.infra.db.tools.decorators import transactional
+from papilio.tools.checks import Checks
+
+
+class ProductService(Checks):
+    entity = "Product"
+
+    def __init__(self, repo):
+        self.repo = repo
+
+    @handle_conflicts
+    @transactional
+    async def create(self, data):
+        return await self.repo.create(data)
+```
+
+The decorator selects the dialect from the UoW active **when the call starts**.
+A missing open UoW or unsupported backend fails before the body runs. Each
+decorated call belongs to that selected unit/backend; decorate separate
+operations for different databases and activate the correct unit before each
+call. Opening a UoW only inside the decorated function is too late.
+
+`handle_conflicts` never opens a transaction, commits, rolls back or retries.
+Place it **outside** `@transactional`, as above, to translate errors after the
+transaction has rolled back, including failures during its commit. Without a
+managed transaction, the caller still owns rollback. Commit or cursor errors
+that happen after the decorated call returns are outside its scope. Only async
+functions are supported, not async generators.
+
+All options are independent and optional:
+
+```python
+@handle_conflicts(
+    entity="Product",  # A model class is also accepted; its __name__ is used.
+    message="A product with these details already exists.",
+    message_code="product.duplicate",
+)
+async def insert_product(repo, data):
+    return await repo.create(data)
+```
+
+Entity naming uses an explicit string/class first, then `self.entity` for an
+actual instance method on `Checks`, then generic record wording. An ordinary
+function or staticmethod receiving a `Checks` object does not use it as the
+entity. No model annotation or database schema inference is performed.
+
+Without a custom message, known fields produce
+`Product already exists with the same sku.`; without field details,
+`Product already exists.`; without an entity,
+`A record with these values already exists.` The default message code is
+`conflict`. Only `None` selects a default, so an explicit empty string is kept.
+
+The existing `unique_dict` contains field/value details only when the backend
+can recover them reliably. PostgreSQL may supply textual values; absent,
+localized or ambiguous details produce `{}`. The other adapters currently
+recognize the violation without a field/value mapping. Values are not copied
+into the generated message, and raw SQL or driver messages are not returned.
+The original `IntegrityError` remains the exception cause.
+
+Foreign-key, CHECK, NOT NULL and unrecognized failures keep their original
+exception. Operations without this decorator also keep native errors. No
+global error handling, repository or transaction configuration changes.
+
 ## Concurrency and multiple databases
 
 Each concurrent task needs its own UoW. Do not share one session across branches of `asyncio.gather`. Repositories participating in one sequential operation can share a UoW.

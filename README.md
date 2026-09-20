@@ -23,8 +23,9 @@ Papilio provides module discovery, dependency injection, HTTP responses,
 validation, database repositories, transactions and application scaffolding.
 Task execution and messaging belong to the independent **Papilio Tasks** project.
 
-This checkout prepares **Papilio 1.0.0**, extracted from Fastamu.
-See the [release notes and migration guide](docs/releases/1.0.0.md).
+**Papilio 1.1.0** adds optional database conflict translation.
+See the [release notes](docs/releases/1.1.0.md) and
+[migration guide from Fastamu](docs/releases/1.0.0.md).
 A prepared version does not mean the package has been published. Install this
 checkout with `pip install -e ".[dev]"`; imports and the CLI use `papilio`.
 

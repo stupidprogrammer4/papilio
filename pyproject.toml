@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "papilio"
-version = "1.0.0"
+version = "1.1.0"
 description = "A modular web API framework built on FastAPI and Dishka"
 readme = "README.md"
 requires-python = ">=3.13"

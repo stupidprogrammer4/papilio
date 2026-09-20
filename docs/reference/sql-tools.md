@@ -126,6 +126,26 @@ class SQLiteDialect(DatabaseDialect):
         ...
 ```
 
+## `papilio.infra.db.tools.conflicts`
+
+### `handle_conflicts`
+
+```python
+@overload
+def handle_conflicts[**P, R](function: Callable[P, Awaitable[R]], *, entity: str | type | None=None, message: str | None=None, message_code: str | None=None) -> Callable[P, Coroutine[Any, Any, R]]:
+    ...
+
+@overload
+def handle_conflicts[**P, R](function: None=None, *, entity: str | type | None=None, message: str | None=None, message_code: str | None=None) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Coroutine[Any, Any, R]]]:
+    ...
+```
+
+Independent async decorator; selects the dialect from the current open UoW
+at call entry. Recognized unique/primary-key violations become
+`ConflictException`; other errors propagate unchanged. Optional entity and
+message defaults, transaction composition and backend detail limits are
+described in the [usage guide](../guide/transactions.md#optional-conflict-translation).
+
 ## `papilio.infra.db.tools.decorators`
 
 ### `transactional`

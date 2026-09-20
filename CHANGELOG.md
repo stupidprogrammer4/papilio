@@ -1,7 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
+- Add independent `@handle_conflicts` for optional translation of database
+  unique/primary-key violations into `ConflictException`. Select the dialect
+  from the active UoW; generate messages from an explicit entity or `Checks`,
+  with optional message/code overrides.
+- Preserve PostgreSQL single-column values containing commas or whitespace;
+  reject ambiguous detail mappings and recognize psycopg2's native error code.
+- Serve Swagger UI assets compatible with OpenAPI 3.1.
 - Allow redis-py 8 alongside 7 so Redis extras can be installed with
   Papilio Tasks and taskiq-redis 1.2.3.
 

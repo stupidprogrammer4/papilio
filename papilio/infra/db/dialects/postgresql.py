@@ -14,27 +14,38 @@ class PGDialect(DatabaseDialect):
 
     def unique_values(self, error):
         cause = getattr(error.orig, "__cause__", None) or error.orig
-        values: dict[str, str] | None = None
-        if getattr(cause, "sqlstate", None) == "23505":
-            detail = getattr(cause, "detail", None)
-            if detail is None:
-                detail = getattr(
-                    getattr(cause, "diag", None), "message_detail", ""
-                )
-            found = re.match(
-                r"Key \((.+)\)=\((.+)\) already exists", detail or ""
+        code = getattr(cause, "sqlstate", None) or getattr(
+            cause, "pgcode", None
+        )
+        if code != "23505":
+            return None
+        detail = getattr(cause, "detail", None)
+        if detail is None:
+            detail = getattr(
+                getattr(cause, "diag", None), "message_detail", ""
             )
-            values = (
-                {}
-                if found is None
-                else dict(
-                    zip(
-                        (name.strip() for name in found.group(1).split(",")),
-                        (value.strip() for value in found.group(2).split(",")),
-                    )
-                )
-            )
-        return values
+        found = re.fullmatch(
+            r"Key \(([^()]*)\)=\((.*)\) already exists\.",
+            detail or "",
+            re.DOTALL,
+        )
+        if found is None:
+            return {}
+        names = found.group(1).split(", ")
+        # Diagnostic text is not an escaped serialization format. Restrict
+        # column names and reject ambiguous composite values rather than
+        # truncating/mispairing them. Single values may contain commas.
+        if any(
+            re.fullmatch(r"[A-Za-z_][A-Za-z_0-9$]*", name) is None
+            for name in names
+        ):
+            return {}
+        values = (
+            [found.group(2)] if len(names) == 1 else found.group(2).split(", ")
+        )
+        if len(names) != len(values) or len(set(names)) != len(names):
+            return {}
+        return dict(zip(names, values, strict=True))
 
 
 async def reset_schema(connection):

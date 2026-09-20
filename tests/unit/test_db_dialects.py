@@ -24,6 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import CreateTable
 from sqlmodel import Field
 
+from papilio.errors.exceptions import ConflictException
 from papilio.infra.db.connection import DBConnection
 from papilio.infra.db.dialects.oracle import OracleJSON
 from papilio.infra.db.repositories.backends import (
@@ -43,6 +44,8 @@ from papilio.infra.db.schema.entity import (
     VersionEntity,
 )
 from papilio.infra.db.table import BaseTable
+from papilio.infra.db.tools.conflicts import handle_conflicts
+from papilio.infra.db.tools.decorators import transactional
 from papilio.infra.db.transaction import transaction
 from papilio.infra.db.uow import (
     MariaDBUnitOfWork,
@@ -1068,3 +1071,25 @@ async def test_upsert_batch_preserves_explicit_nullable_values(runtime):
             ("a", 1, None),
             ("b", 2, "new b"),
         ]
+
+
+async def test_opt_in_conflict_translation_and_rollback(runtime):
+    async with runtime.db.uow() as unit:
+        repo = runtime.repo_type(unit)
+        async with unit.transaction():
+            await repo.create(ProbeEntity(code="conflict-existing"))
+
+        @handle_conflicts(entity=ProbeEntity)
+        @transactional
+        async def create_duplicate():
+            await repo.create(ProbeEntity(code="conflict-existing"))
+
+        with pytest.raises(ConflictException) as caught:
+            await create_duplicate()
+        assert isinstance(caught.value.__cause__, IntegrityError)
+        assert caught.value.message_code == "conflict"
+        assert caught.value.message.startswith("ProbeEntity already exists")
+        assert not unit.in_transaction
+        async with unit.transaction():
+            await repo.create(ProbeEntity(code="conflict-recovered"))
+        assert len(await repo.get_all()) == 2
