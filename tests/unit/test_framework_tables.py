@@ -21,3 +21,24 @@ assert bootstrap.boot_routers() == []
 assert "papilio.tasks.projection.broker" not in sys.modules
 """
     subprocess.run([sys.executable, "-c", script], check=True)
+
+
+def test_explicit_table_name_preserves_default_convention():
+    script = """
+from typing import ClassVar
+from papilio.infra.db.schema.entity import PersistenceEntity
+from papilio.infra.db.table import BaseTable
+
+class MediaTable(PersistenceEntity, BaseTable, table=True):
+    table_name: ClassVar[str | None] = "tbl_media"
+
+class ProductCategoryTable(PersistenceEntity, BaseTable, table=True):
+    pass
+
+assert MediaTable.__table__.name == "tbl_media"
+assert ProductCategoryTable.__table__.name == "tbl_product_categories"
+assert "table_name" not in MediaTable.model_fields
+assert "table_name" not in MediaTable.__table__.c
+assert BaseTable.table_name is None
+"""
+    subprocess.run([sys.executable, "-c", script], check=True)
