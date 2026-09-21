@@ -1,4 +1,4 @@
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from typing import cast
 
 from redis.asyncio import Redis
@@ -55,6 +55,19 @@ class RedisClient:
         """
         pong = await resolve(self.client.ping())
         return bool(pong)
+
+    async def count_keys(
+        self, pattern: str, *, accept: Callable[[str], bool] | None = None
+    ) -> int:
+        """Count matching keys with incremental SCAN.
+
+        The count is not a snapshot during concurrent key changes.
+        """
+        count = 0
+        async for key in self.client.scan_iter(match=pattern, count=500):
+            if accept is None or accept(key):
+                count += 1
+        return count
 
     async def close(self) -> None:
         await self.client.aclose()
