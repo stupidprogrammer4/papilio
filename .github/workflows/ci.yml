@@ -27,6 +27,7 @@ jobs:
       PAPILIO_TEST_POSTGRESQL_URL: postgresql+asyncpg://postgres:papilio-test@127.0.0.1:5432/papilio_test
       PAPILIO_TEST_MYSQL: mysql+asyncmy://root:papilio-test@127.0.0.1:3306/papilio_test
       PAPILIO_TEST_MARIADB: mysql+asyncmy://root:papilio-test@127.0.0.1:3307/papilio_test
+      PAPILIO_TEST_REDIS_URL: redis://127.0.0.1:6379/0
     services:
       postgres:
         image: postgres:17
@@ -66,6 +67,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 30
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -113,12 +123,14 @@ jobs:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
           MYSQL_CONTAINER: ${{ job.services.mysql.id }}
           MARIADB_CONTAINER: ${{ job.services.mariadb.id }}
+          REDIS_CONTAINER: ${{ job.services.redis.id }}
         run: |
           mkdir -p ci-logs
           python -m pip freeze > ci-logs/dependencies.txt
           docker logs "$POSTGRES_CONTAINER" > ci-logs/postgres.log 2>&1 || true
           docker logs "$MYSQL_CONTAINER" > ci-logs/mysql.log 2>&1 || true
           docker logs "$MARIADB_CONTAINER" > ci-logs/mariadb.log 2>&1 || true
+          docker logs "$REDIS_CONTAINER" > ci-logs/redis.log 2>&1 || true
       - name: Save test results, diagnostics and distributions
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
