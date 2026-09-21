@@ -120,9 +120,33 @@ def JSONField(*, none_as_null: bool=False, **options: Unpack[FieldOptions]) -> A
 ### `EnumField`
 
 ```python
-def EnumField(enum_cls: type[enum.Enum], **options: Unpack[FieldOptions]) -> Any:
+def EnumField(
+    enum_cls: type[enum.Enum],
+    *,
+    native_enum: bool = True,
+    values_callable: Callable[[type[enum.Enum]], list[str]] | None = None,
+    length: int | None = None,
+    **options: Unpack[FieldOptions],
+) -> Any:
     ...
 ```
+
+Defaults preserve SQLAlchemy's native enum and member-name storage. To keep an
+existing text column and store member values while reading Python enum members:
+
+```python
+kind: ItemKind = EnumField(
+    ItemKind,
+    native_enum=False,
+    values_callable=lambda members: [member.value for member in members],
+    length=35,
+)
+```
+
+This maps to `VARCHAR(35)` without creating a PostgreSQL enum or an enum check
+constraint. With `length=None`, SQLAlchemy infers the length from stored strings.
+Existing text values must match the selected enum values; unknown values raise
+`LookupError` when read. The helper does not migrate existing columns or data.
 
 ### `ComputedField`
 

@@ -169,9 +169,23 @@ def JSONField(
 
 def EnumField(
     enum_cls: type[enum.Enum],
+    *,
+    native_enum: bool = True,
+    values_callable: Callable[[type[enum.Enum]], list[str]] | None = None,
+    length: int | None = None,
     **options: Unpack[FieldOptions],
 ) -> Any:
-    return _field(SAEnum(enum_cls), **options)
+    """Map members to native enums or text with SQLAlchemy defaults."""
+    enum_options = {"length": length} if length is not None else {}
+    return _field(
+        SAEnum(
+            enum_cls,
+            native_enum=native_enum,
+            values_callable=values_callable,
+            **enum_options,
+        ),
+        **options,
+    )
 
 
 def ComputedField(
