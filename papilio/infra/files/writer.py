@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from os import PathLike
 from typing import Literal
@@ -7,6 +7,20 @@ from anyio import AsyncFile, CancelScope, open_file
 
 
 class FileWriter:
+    async def write_stream(
+        self,
+        path: str | PathLike[str],
+        chunks: AsyncIterator[bytes],
+        *,
+        mode: Literal["wb", "ab", "xb"] = "wb",
+    ) -> int:
+        """Write chunks in order without buffering the complete file."""
+        size = 0
+        async with self.open_bytes(path, mode=mode) as stream:
+            async for chunk in chunks:
+                size += await stream.write(chunk)
+        return size
+
     @asynccontextmanager
     async def open_text(
         self,
