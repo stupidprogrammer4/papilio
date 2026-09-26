@@ -43,7 +43,7 @@ You can set the table name explicitly; otherwise BaseTable applies its naming co
 | Boolean | `BoolField` |
 | Approximate / exact decimal | `FloatField` / `NumericField` |
 | Bounded / unbounded text | `CharField` / `TextField` |
-| Date / timestamp | `DateField` / `TimestampField` |
+| Date / time of day / timestamp | `DateField` / `TimeField` / `TimestampField` |
 | JSON document | `JSONField` |
 | Enum | `EnumField` |
 | Relationship key | `ForeignKeyField` |

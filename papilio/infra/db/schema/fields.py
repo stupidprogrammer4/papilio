@@ -20,6 +20,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    Time,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import Enum as SAEnum
@@ -141,6 +142,11 @@ def TextField(**options: Unpack[FieldOptions]) -> Any:
 
 def DateField(**options: Unpack[FieldOptions]) -> Any:
     return _field(Date, **options)
+
+
+def TimeField(**options: Unpack[FieldOptions]) -> Any:
+    """Store a local clock time without a date or timezone."""
+    return _field(Time(timezone=False), **options)
 
 
 def TimestampField(**options: Unpack[FieldOptions]) -> Any:

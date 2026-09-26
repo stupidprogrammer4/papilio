@@ -96,6 +96,26 @@ def DateField(**options: Unpack[FieldOptions]) -> Any:
     ...
 ```
 
+### `TimeField`
+
+```python
+def TimeField(**options: Unpack[FieldOptions]) -> Any:
+    ...
+```
+
+Stores a local clock time as SQLAlchemy `Time(timezone=False)` (`TIME WITHOUT
+TIME ZONE` on PostgreSQL). Use a `datetime.time` annotation and the same
+`FieldOptions` as other helpers:
+
+```python
+opens_at: time = TimeField()
+closes_at: time | None = TimeField(nullable=True, default=None)
+```
+
+Import `time` from `datetime`. The field stores no date or timezone and performs
+no timezone conversion. Validate timezone restrictions and schedule rules in
+the input schema or application layer.
+
 ### `TimestampField`
 
 ```python
