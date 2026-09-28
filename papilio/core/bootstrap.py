@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from elasticsearch import AsyncElasticsearch
     from elasticsearch.dsl import AsyncDocument
 
+    from papilio.mcp.router import MCPRouter
+
 
 class Bootstrapper:
     """Finds everything a running app is made of, by walking packages.
@@ -30,6 +32,7 @@ class Bootstrapper:
         self.providers_path = "providers"
         self.tables_path = "infra.tables"
         self.routers_path = "routers"
+        self.tools_path = "tools"
         self.doc_path = "domain.documents"
 
     @cached_property
@@ -129,6 +132,23 @@ class Bootstrapper:
             for module in files:
                 for _, obj in inspect.getmembers(module):
                     if isinstance(obj, APIRouter) and not any(
+                        obj is seen for seen in routers
+                    ):
+                        routers.append(obj)
+        return routers
+
+    def boot_mcp_tools(self) -> list[MCPRouter]:
+        """Collect explicit tool routers from each selected module's tools."""
+        from papilio.mcp.router import MCPRouter
+
+        routers: list[MCPRouter] = []
+        for module_name in self.submodules:
+            files = self.import_package_modules(
+                f"{module_name}.{self.tools_path}", raise_nested=True
+            )
+            for module in files:
+                for _, obj in inspect.getmembers(module):
+                    if isinstance(obj, MCPRouter) and not any(
                         obj is seen for seen in routers
                     ):
                         routers.append(obj)

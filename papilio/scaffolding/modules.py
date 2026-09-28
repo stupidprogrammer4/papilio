@@ -17,6 +17,7 @@ def _layout(
     plain: bool,
     http: bool,
     excel: bool,
+    mcp: bool,
 ) -> dict[str, str]:
     """The files a module is made of, as ``relative path -> template``."""
     if context or plain:
@@ -74,6 +75,13 @@ def _layout(
         files["infra/gateways.py"] = "module/gateways.tpl"
     if excel:
         files["infra/exporters.py"] = "module/exporters.tpl"
+    if mcp:
+        files["tools/__init__.py"] = ""
+        files["tools/operations.py"] = (
+            "module/run_tool.tpl"
+            if context or plain
+            else "module/read_tool.tpl"
+        )
     return {
         path: render(template, values) if template else ""
         for path, template in files.items()
@@ -109,6 +117,7 @@ def files(
     plain: bool = False,
     http: bool = False,
     excel: bool = False,
+    mcp: bool = False,
 ) -> dict[str, str]:
     if sum((cqrs, context, plain)) > 1:
         raise ValueError("choose only one of CQRS, context or plain")
@@ -120,9 +129,16 @@ def files(
         "S": singular,
         "PL": folder,
         "P": "".join(part.capitalize() for part in singular.split("_")),
+        "TOOL_PREFIX": dotted.replace(".", "_"),
     }
     return _layout(
-        values, cqrs=cqrs, context=context, plain=plain, http=http, excel=excel
+        values,
+        cqrs=cqrs,
+        context=context,
+        plain=plain,
+        http=http,
+        excel=excel,
+        mcp=mcp,
     )
 
 
@@ -136,6 +152,7 @@ def write(
     plain: bool = False,
     http: bool = False,
     excel: bool = False,
+    mcp: bool = False,
 ) -> Path:
     rendered = files(
         package,
@@ -145,6 +162,7 @@ def write(
         plain=plain,
         http=http,
         excel=excel,
+        mcp=mcp,
     )
     group, _, folder = _names(name, context or plain)
     parent = root / group if group else root

@@ -53,6 +53,7 @@ def module(
     ),
     http: bool = typer.Option(False, "--http", help="Add an HTTP gateway"),
     excel: bool = typer.Option(False, "--excel", help="Add an exporter"),
+    mcp: bool = typer.Option(False, "--mcp", help="Add MCP server tools"),
 ) -> None:
     package, root = _target_package()
     try:
@@ -65,6 +66,7 @@ def module(
             plain=plain,
             http=http,
             excel=excel,
+            mcp=mcp,
         )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -79,6 +81,8 @@ def module(
         extras.add("http")
     if excel:
         extras.add("excel")
+    if mcp:
+        extras.add("mcp")
     if extras:
         typer.echo(
             "Required extras: papilio[" + ",".join(sorted(extras)) + "]"
@@ -87,3 +91,5 @@ def module(
             "Select these extras in your project dependencies "
             "and wire their providers in main.py."
         )
+    if mcp:
+        typer.echo("Enable tool discovery with create_app(mcp=True).")

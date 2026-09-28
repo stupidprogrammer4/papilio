@@ -1,8 +1,10 @@
 """Build a web application with its own dependencies."""
 
+from __future__ import annotations
+
 from collections.abc import AsyncGenerator, Mapping, Sequence
-from contextlib import asynccontextmanager
-from typing import Any
+from contextlib import AsyncExitStack, asynccontextmanager
+from typing import TYPE_CHECKING, Any
 
 from dishka import Provider, make_async_container
 from dishka.integrations.fastapi import FastapiProvider, setup_dishka
@@ -21,6 +23,9 @@ from .docs import setup_docs
 from .middlewares.logging import LoggingMiddleware
 from .responses.handlers import setup_exception_handlers
 
+if TYPE_CHECKING:
+    from papilio.mcp.router import MCPRouter
+
 
 def create_app(
     settings: Settings | None = None,
@@ -32,6 +37,9 @@ def create_app(
     exception_handlers: Mapping[int | type[Exception], HTTPExceptionHandler]
     | None = None,
     docs_url: str | None = "/docs",
+    mcp: bool | Sequence[MCPRouter] = False,
+    mcp_path: str = "/mcp",
+    mcp_http_options: Mapping[str, Any] | None = None,
     **fastapi_options: Any,
 ) -> FastAPI:
     """Build an app; extra options go directly to FastAPI."""
@@ -45,6 +53,29 @@ def create_app(
         *discovered,
         *providers,
     )
+    mcp_app = None
+    mcp_server = None
+    if mcp is not False:
+        from papilio.mcp.server import build_server
+
+        if not mcp_path.startswith("/") or mcp_path == "/":
+            raise ValueError("mcp_path must be a non-root absolute URL path")
+        transport_options = dict(mcp_http_options or {})
+        if "streamable_http_path" in transport_options:
+            raise ValueError("Use mcp_path to select the MCP endpoint")
+        mcp_server = build_server(
+            (*bootstrapper.boot_mcp_tools(), *(() if mcp is True else mcp)),
+            container,
+            name=fastapi_options.get("title", config.fastapi.title),
+        )
+        mcp_app = mcp_server.streamable_http_app(
+            streamable_http_path="/",
+            **{
+                "stateless_http": True,
+                "json_response": True,
+                **transport_options,
+            },
+        )
 
     @asynccontextmanager
     async def managed_lifespan(
@@ -52,11 +83,17 @@ def create_app(
     ) -> AsyncGenerator[Mapping[str, Any]]:
         try:
             logger.setup(config.logging)
-            if lifespan is None:
-                yield {}
-            else:
-                async with lifespan(app) as state:
-                    yield state or {}
+            async with AsyncExitStack() as stack:
+                if mcp_app is not None:
+                    await stack.enter_async_context(
+                        mcp_app.router.lifespan_context(mcp_app)
+                    )
+                state = (
+                    await stack.enter_async_context(lifespan(app))
+                    if lifespan is not None
+                    else None
+                )
+                yield state or {}
         finally:
             await container.close()
 
@@ -93,4 +130,7 @@ def create_app(
         setup_docs(app, docs_url=docs_url)
     for router in (*discovered_routers, *routers):
         app.include_router(router)
+    if mcp_app is not None:
+        app.state.mcp_server = mcp_server
+        app.mount(mcp_path, mcp_app, name="mcp")
     return app

@@ -23,11 +23,11 @@ Papilio provides module discovery, dependency injection, HTTP responses,
 validation, database repositories, transactions and application scaffolding.
 Task execution and messaging belong to the independent **Papilio Tasks** project.
 
-**Papilio 1.1.0** adds optional database conflict translation.
-See the [release notes](docs/releases/1.1.0.md) and
+**Papilio 1.2.0** adds MCP server tools with Dishka injection and module discovery.
+See the [release notes](docs/releases/1.2.0.md) and
 [migration guide from Fastamu](docs/releases/1.0.0.md).
-A prepared version does not mean the package has been published. Install this
-checkout with `pip install -e ".[dev]"`; imports and the CLI use `papilio`.
+Release assets are distributed on GitHub; this does not imply PyPI availability.
+Install this checkout with `pip install -e ".[dev]"`; imports and the CLI use `papilio`.
 
 ## Table of contents
 
@@ -100,6 +100,7 @@ pip install -e ".[test]"
 | `rate-limit-redis` | Rate-limit tools with Redis |
 | `passwords` / `auth` / `crypto` / `csrf` | Optional security tools/adapters |
 | `http` | Outbound HTTP client and gateway |
+| `mcp` | MCP server tools with Dishka injection and module discovery |
 | `excel` | Spreadsheet reader/writer; no pandas or NumPy |
 | `files`, `csv` | Async file and CSV tools using AnyIO worker threads |
 | `persian` | Jalali/Persian utility functions |
@@ -133,6 +134,7 @@ available as extras; the current CLI SQL templates target PostgreSQL.
 | `papilio module product --cqrs` | CRUD, SQL create command, ES search query and search endpoint |
 | `papilio module pricing --plain` | DTO, output, service, provider and endpoint; no SQL or ES imports |
 | `papilio module pricing --context` | A custom SQL reader and calculation skeleton to implement |
+| `papilio module assistant --plain --mcp` | Service, provider, HTTP endpoint and MCP tool without SQL |
 | `--http`, `--excel` | Additional gateway/exporter extension files |
 
 CRUD models start with persistence fields; add your domain fields to the model
@@ -141,6 +143,11 @@ Context reading/calculation is application-specific and intentionally unfinished
 CQRS writes and search are separate tools: no automatic publication, projection,
 retry, outbox or SQL-to-ES synchronization is installed. Module generation prints
 the required extras; add them to your project's dependencies and wire providers.
+
+Install `papilio[mcp]` and enable `create_app(mcp=True)` to serve tools discovered
+from each selected module's `tools/` package at `/mcp/`. Tools receive existing
+services through `FromDishka` in independent request scopes. See the
+[MCP server guide](docs/guide/mcp.md) for registration and access boundaries.
 
 ## Quickstart
 

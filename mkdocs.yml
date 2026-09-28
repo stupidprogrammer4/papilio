@@ -36,6 +36,7 @@ nav:
       - Build a complete feature: guide/tutorial.md
       - Modules and scaffolding: guide/modules.md
       - Application and dependency injection: guide/application.md
+      - MCP server tools: guide/mcp.md
       - Ready providers: guide/providers.md
       - Configuration: guide/configuration.md
       - SQL models and fields: guide/models.md
@@ -74,6 +75,7 @@ nav:
       - Security and utilities: reference/utilities.md
       - CLI and scaffolding: reference/scaffolding.md
   - Release notes:
+      - Papilio 1.2.0: releases/1.2.0.md
       - Papilio 1.1.0: releases/1.1.0.md
       - Papilio 1.0.0: releases/1.0.0.md
   - Maintaining the documentation: contributing.md

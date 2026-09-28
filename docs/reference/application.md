@@ -9,9 +9,12 @@ Single-underscore methods are protected extension tools. For inherited methods, 
 ### `create_app`
 
 ```python
-def create_app(settings: Settings | None=None, *, providers: Sequence[Provider]=(), routers: Sequence[APIRouter]=(), middleware: Sequence[Middleware] | None=None, lifespan: Lifespan[FastAPI] | None=None, exception_handlers: Mapping[int | type[Exception], HTTPExceptionHandler] | None=None, docs_url: str | None='/docs', **fastapi_options: Any) -> FastAPI:
+def create_app(settings: Settings | None=None, *, providers: Sequence[Provider]=(), routers: Sequence[APIRouter]=(), middleware: Sequence[Middleware] | None=None, lifespan: Lifespan[FastAPI] | None=None, exception_handlers: Mapping[int | type[Exception], HTTPExceptionHandler] | None=None, docs_url: str | None='/docs', mcp: bool | Sequence[MCPRouter]=False, mcp_path: str='/mcp', mcp_http_options: Mapping[str, Any] | None=None, **fastapi_options: Any) -> FastAPI:
     ...
 ```
+
+See [MCP server tools](../guide/mcp.md) for optional discovery, transport options
+and per-call Dishka scopes.
 
 ## `papilio.api.docs`
 
@@ -45,6 +48,9 @@ class Bootstrapper:
         ...
 
     def boot_routers(self) -> list[APIRouter]:
+        ...
+
+    def boot_mcp_tools(self) -> list[MCPRouter]:
         ...
 
     def boot_sqlmodels(self) -> None:

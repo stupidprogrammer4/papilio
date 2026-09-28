@@ -108,6 +108,41 @@ asyncio.run(run())
     subprocess.run([sys.executable, "-c", script], cwd=tmp_path, check=True)
 
 
+def test_mcp_is_optional_even_for_generated_tool_modules(tmp_path):
+    from papilio.scaffolding import modules
+
+    scaffold.write(tmp_path, "probe", "Probe")
+    modules.write(
+        tmp_path / "probe/modules",
+        "probe.modules",
+        "health",
+        plain=True,
+        mcp=True,
+    )
+    script = """
+import importlib.abc
+import sys
+
+class BlockMCP(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.')[0] in {'mcp', 'mcp_types', 'httpx2'}:
+            raise ModuleNotFoundError('MCP is not installed', name=fullname)
+
+sys.meta_path.insert(0, BlockMCP())
+from probe.main import app
+assert '/health' in app.openapi()['paths']
+assert not any(n.startswith('probe.modules.health.tools') for n in sys.modules)
+from papilio.api.application import create_app
+try:
+    create_app(mcp=True)
+except ImportError as exc:
+    assert 'papilio[mcp]' in str(exc), str(exc)
+else:
+    raise AssertionError('Missing MCP should report its extra')
+"""
+    subprocess.run([sys.executable, "-c", script], cwd=tmp_path, check=True)
+
+
 def test_sqlite_provider_does_not_require_other_backends(tmp_path):
     script = """
 import asyncio

@@ -20,7 +20,13 @@ def test_generated_sql_routes_and_query_tools(tmp_path, cqrs):
         root, "shop", "Shop", cqrs=cqrs, infra=(Infrastructure.POSTGRESQL,)
     )
     target = modules.write(
-        root / "shop/modules", "shop.modules", "product", cqrs=cqrs
+        root / "shop/modules", "shop.modules", "product", cqrs=cqrs, mcp=True
+    )
+    main_file = root / "shop/main.py"
+    main_file.write_text(
+        main_file.read_text().replace(
+            "create_app(settings,", "create_app(settings, mcp=True,"
+        )
     )
     config = yaml.safe_load((root / "config.yml").read_text())
     config["db"]["dsn"] = dsn
@@ -101,6 +107,11 @@ async def main():
                 assert len(statements) == 1 and statements[0].startswith(
                     "INSERT"
                 )
+                tool_result = await app.state.mcp_server.call_tool(
+                    "products_get", {"id": key}
+                )
+                assert tool_result.structured_content["id"] == key
+                assert tool_result.structured_content["name"] == "first"
                 statements.clear()
                 response = await client.patch(
                     f"/products/{key}", json={"name": "second"}
