@@ -32,7 +32,7 @@ See [runner installation, configuration and precedence](../guide/operations.md).
 ### `module`
 
 ```python
-def module(name: str=typer.Argument(..., help='<name> or <group>.<name>'), cqrs: bool=typer.Option(False, '--cqrs', help='Add ES documents and CQRS tools'), context: bool=typer.Option(False, '--context', help='Generate a context module'), plain: bool=typer.Option(False, '--plain', help='Module without a database'), http: bool=typer.Option(False, '--http', help='Add an HTTP gateway'), excel: bool=typer.Option(False, '--excel', help='Add an exporter'), mcp: bool=typer.Option(False, '--mcp', help='Add MCP server tools')) -> None:
+def module(name: str=typer.Argument(..., help='<name> or <group>.<name>'), cqrs: bool=typer.Option(False, '--cqrs', help='Add ES documents and CQRS tools'), context: bool=typer.Option(False, '--context', help='Generate a context module'), plain: bool=typer.Option(False, '--plain', help='Module without a database'), http: bool=typer.Option(False, '--http', help='Add an HTTP gateway'), excel: bool=typer.Option(False, '--excel', help='Add an exporter'), mcp: bool=typer.Option(False, '--mcp', help='Add MCP server tools'), function_tools: bool=typer.Option(False, '--function-tools', help='Add in-process Function Tools')) -> None:
     ...
 ```
 
@@ -50,14 +50,14 @@ def new(name: str=typer.Argument(..., help='Project name'), directory: str=typer
 ### `files`
 
 ```python
-def files(package: str, name: str, *, cqrs: bool=False, context: bool=False, plain: bool=False, http: bool=False, excel: bool=False, mcp: bool=False) -> dict[str, str]:
+def files(package: str, name: str, *, cqrs: bool=False, context: bool=False, plain: bool=False, http: bool=False, excel: bool=False, mcp: bool=False, function_tools: bool=False) -> dict[str, str]:
     ...
 ```
 
 ### `write`
 
 ```python
-def write(root: Path, package: str, name: str, *, cqrs: bool=False, context: bool=False, plain: bool=False, http: bool=False, excel: bool=False, mcp: bool=False) -> Path:
+def write(root: Path, package: str, name: str, *, cqrs: bool=False, context: bool=False, plain: bool=False, http: bool=False, excel: bool=False, mcp: bool=False, function_tools: bool=False) -> Path:
     ...
 ```
 

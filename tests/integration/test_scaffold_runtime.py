@@ -20,7 +20,70 @@ def test_generated_sql_routes_and_query_tools(tmp_path, cqrs):
         root, "shop", "Shop", cqrs=cqrs, infra=(Infrastructure.POSTGRESQL,)
     )
     target = modules.write(
-        root / "shop/modules", "shop.modules", "product", cqrs=cqrs, mcp=True
+        root / "shop/modules",
+        "shop.modules",
+        "product",
+        cqrs=cqrs,
+        mcp=True,
+        function_tools=True,
+    )
+    read_tool = target / "function_tools/operations.py"
+    read_tool.write_text(
+        read_tool.read_text().replace(
+            "raise NotImplementedError("
+            '"Configure Function Tool authorization")',
+            'return context in {"permitted", "approved"}',
+        )
+    )
+    context_target = modules.write(
+        root / "shop/modules",
+        "shop.modules",
+        "summary",
+        context=True,
+        function_tools=True,
+    )
+    context_tool = context_target / "function_tools/operations.py"
+    context_tool.write_text(
+        context_tool.read_text()
+        .replace(
+            "raise NotImplementedError("
+            '"Configure Function Tool authorization")',
+            'return context in {"permitted", "approved"}',
+        )
+        .replace(
+            'raise NotImplementedError("Configure Function Tool approval")',
+            'return context == "approved"',
+        )
+    )
+    (context_target / "domain/context.py").write_text(
+        "from pydantic import BaseModel\n"
+        "class SummaryContext(BaseModel):\n    name: str\n"
+    )
+    (context_target / "domain/dtos.py").write_text(
+        "from papilio.schemas.inputs import BaseDTO\n"
+        "class SummaryInput(BaseDTO):\n    suffix: str\n"
+    )
+    (context_target / "app/results.py").write_text(
+        "from papilio.schemas.outputs import BaseOutput\n"
+        "class SummaryOut(BaseOutput):\n    name: str\n"
+    )
+    context_service = context_target / "app/services.py"
+    context_service.write_text(
+        context_service.read_text().replace(
+            "raise NotImplementedError",
+            "return SummaryOut(name=context.name + data.suffix)",
+        )
+    )
+    (context_target / "infra/readers.py").write_text(
+        "from sqlalchemy import select\n"
+        "from papilio.infra.db.repositories.backends.postgresql "
+        "import PGReader\n"
+        "from shop.modules.products.infra.tables import ProductTable\n"
+        "from shop.modules.summary.domain.context import SummaryContext\n"
+        "class SummaryReader(PGReader):\n"
+        "    async def read(self) -> SummaryContext:\n"
+        "        result = await self.uow.execute(select(ProductTable.name))\n"
+        "        return SummaryContext(name=result.scalar_one())\n"
     )
     main_file = root / "shop/main.py"
     main_file.write_text(
@@ -57,6 +120,7 @@ from httpx import AsyncClient, ASGITransport
 from papilio.core.bootstrap import Bootstrapper
 from papilio.infra.db.connection import DBConnection
 from papilio.infra.db.uow import PGUnitOfWork
+from papilio.function_tools.execution import FunctionToolExecutor
 
 Bootstrapper.boot_es_indices = AsyncMock()
 from shop.main import app
@@ -85,6 +149,10 @@ async def main():
         database = await app.state.dishka_container.get(
             DBConnection[PGUnitOfWork]
         )
+        executor = FunctionToolExecutor(
+            Bootstrapper(["shop.modules"]).boot_function_tools(),
+            app.state.dishka_container,
+        )
         async with database.engine.begin() as conn:
             await conn.run_sync(ProductTable.__table__.create)
         statements = []
@@ -112,6 +180,24 @@ async def main():
                 )
                 assert tool_result.structured_content["id"] == key
                 assert tool_result.structured_content["name"] == "first"
+                direct = await executor.invoke(
+                    "products_get", {"id": key}, context="permitted"
+                )
+                assert direct.id == key and direct.name == "first"
+                try:
+                    await executor.invoke(
+                        "summary_run", {"data": {"suffix": "!"}},
+                        context="permitted",
+                    )
+                except PermissionError:
+                    pass
+                else:
+                    raise AssertionError("Unapproved context tool executed")
+                summary = await executor.invoke(
+                    "summary_run", {"data": {"suffix": "!"}},
+                    context="approved",
+                )
+                assert summary.name == "first!"
                 statements.clear()
                 response = await client.patch(
                     f"/products/{key}", json={"name": "second"}
@@ -123,6 +209,15 @@ async def main():
                 )
                 response = await client.get(f"/products/{key}")
                 assert response.json()["data"]["name"] == "second"
+                direct = await executor.invoke(
+                    "products_get", {"id": key}, context="permitted"
+                )
+                assert direct.id == key and direct.name == "second"
+                summary = await executor.invoke(
+                    "summary_run", {"data": {"suffix": "?"}},
+                    context="approved",
+                )
+                assert summary.name == "second?"
                 statements.clear()
                 response = await client.delete(f"/products/{key}")
                 assert response.json() == 1

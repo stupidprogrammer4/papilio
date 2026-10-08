@@ -28,11 +28,16 @@ Run these commands from your generated project root:
 | `papilio module sales.order --http` | Grouped module with an HTTP gateway template |
 | `papilio module report --plain --excel` | Exporter extension placeholder; no complete export implementation |
 | `papilio module assistant --plain --mcp` | MCP tool calling the same service through Dishka; enable `create_app(mcp=True)` |
+| `papilio module assistant --plain --function-tools` | In-process Function Tool calling the service; implement authorization and approval |
 
 CRUD is the default, not a `--crud` flag. `--cqrs`, `--context` and `--plain` are mutually exclusive. The generator refuses to overwrite an existing module.
 
 `--mcp` works with each preset and adds a `tools/` package. See
 [MCP server tools](mcp.md) for installation, discovery and scope contracts.
+
+`--function-tools` adds a `function_tools/` package to each preset without a
+model dependency. See [Function Tools](function-tools.md) for execution and
+application-owned authorization.
 
 ## Where code belongs
 

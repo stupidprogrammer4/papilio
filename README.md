@@ -23,8 +23,9 @@ Papilio provides module discovery, dependency injection, HTTP responses,
 validation, database repositories, transactions and application scaffolding.
 Task execution and messaging belong to the independent **Papilio Tasks** project.
 
-**Papilio 1.2.0** adds MCP server tools with Dishka injection and module discovery.
-See the [release notes](docs/releases/1.2.0.md) and
+**Papilio 1.3.0** adds typed Function Tools with application guards, fresh
+Dishka scopes and optional Pydantic AI and MCP adapters.
+See the [release notes](docs/releases/1.3.0.md) and
 [migration guide from Fastamu](docs/releases/1.0.0.md).
 Release assets are distributed on GitHub; this does not imply PyPI availability.
 Install this checkout with `pip install -e ".[dev]"`; imports and the CLI use `papilio`.
@@ -135,6 +136,7 @@ available as extras; the current CLI SQL templates target PostgreSQL.
 | `papilio module pricing --plain` | DTO, output, service, provider and endpoint; no SQL or ES imports |
 | `papilio module pricing --context` | A custom SQL reader and calculation skeleton to implement |
 | `papilio module assistant --plain --mcp` | Service, provider, HTTP endpoint and MCP tool without SQL |
+| `papilio module assistant --plain --function-tools` | Service, provider and in-process Function Tool with explicit authorization/approval hooks |
 | `--http`, `--excel` | Additional gateway/exporter extension files |
 
 CRUD models start with persistence fields; add your domain fields to the model
@@ -148,6 +150,11 @@ Install `papilio[mcp]` and enable `create_app(mcp=True)` to serve tools discover
 from each selected module's `tools/` package at `/mcp/`. Tools receive existing
 services through `FromDishka` in independent request scopes. See the
 [MCP server guide](docs/guide/mcp.md) for registration and access boundaries.
+
+For direct invocation inside the application's process, use `FunctionTools`
+and `Bootstrapper.boot_function_tools()`. The base package supports typed inputs,
+explicit effects, application authorization and isolated Dishka scopes. See
+[Function Tools](docs/guide/function-tools.md).
 
 ## Quickstart
 

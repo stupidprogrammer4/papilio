@@ -11,17 +11,20 @@ from papilio.scaffolding import modules, project
 
 
 @pytest.mark.parametrize(
-    "mode,http,excel,mcp",
+    "mode,http,excel,mcp,function_tools",
     tuple(
         itertools.product(
             ("crud", "cqrs", "context", "plain"),
             (False, True),
             (False, True),
             (False, True),
+            (False, True),
         )
     ),
 )
-def test_generated_module_variants_have_valid_sources(mode, http, excel, mcp):
+def test_generated_module_variants_have_valid_sources(
+    mode, http, excel, mcp, function_tools
+):
     files = modules.files(
         "shop.modules",
         "catalog.product",
@@ -31,18 +34,23 @@ def test_generated_module_variants_have_valid_sources(mode, http, excel, mcp):
         http=http,
         excel=excel,
         mcp=mcp,
+        function_tools=function_tools,
     )
     for name, source in files.items():
         assert "<<" not in source
         if name.endswith(".py"):
             tree = ast.parse(source, filename=name)
-            if name.startswith(("app/", "tools/")) or name == "interfaces.py":
+            if (
+                name.startswith(("app/", "tools/", "function_tools/"))
+                or name == "interfaces.py"
+            ):
                 assert not any(
                     isinstance(node, ast.ImportFrom)
                     and ".routers." in (node.module or "")
                     for node in ast.walk(tree)
                 )
     assert ("tools/operations.py" in files) == mcp
+    assert ("function_tools/operations.py" in files) == function_tools
     if mode == "context":
         assert "app/results.py" in files
         assert "infra/tables.py" not in files
@@ -108,6 +116,31 @@ def test_cli_generates_mcp_module_and_preserves_existing_files(tmp_path):
     repeated = subprocess.run(command, cwd=tmp_path, capture_output=True)
     assert repeated.returncode != 0
     assert tool.read_text() == "# user's tool\n"
+
+
+def test_cli_generates_function_tools_without_optional_extras(tmp_path):
+    project.write(tmp_path, "shop", "Shop")
+    command = [
+        sys.executable,
+        "-m",
+        "papilio.cli",
+        "module",
+        "assistant",
+        "--plain",
+        "--function-tools",
+    ]
+    result = subprocess.run(
+        command, cwd=tmp_path, check=True, capture_output=True, text=True
+    )
+    assert "Required extras" not in result.stdout
+    assert "boot_function_tools" in result.stdout
+    assert "authorization policy" in result.stdout
+    tool = tmp_path / "shop/modules/assistant/function_tools/operations.py"
+    assert tool.is_file()
+    tool.write_text("# user's Function Tool\n")
+    repeated = subprocess.run(command, cwd=tmp_path, capture_output=True)
+    assert repeated.returncode != 0
+    assert tool.read_text() == "# user's Function Tool\n"
 
 
 def test_cli_generates_importable_modules_without_installing_the_app(tmp_path):

@@ -54,6 +54,9 @@ def module(
     http: bool = typer.Option(False, "--http", help="Add an HTTP gateway"),
     excel: bool = typer.Option(False, "--excel", help="Add an exporter"),
     mcp: bool = typer.Option(False, "--mcp", help="Add MCP server tools"),
+    function_tools: bool = typer.Option(
+        False, "--function-tools", help="Add in-process Function Tools"
+    ),
 ) -> None:
     package, root = _target_package()
     try:
@@ -67,6 +70,7 @@ def module(
             http=http,
             excel=excel,
             mcp=mcp,
+            function_tools=function_tools,
         )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -93,3 +97,8 @@ def module(
         )
     if mcp:
         typer.echo("Enable tool discovery with create_app(mcp=True).")
+    if function_tools:
+        typer.echo(
+            "Discover with Bootstrapper.boot_function_tools(); "
+            "implement the generated authorization policy before invoking."
+        )

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+
+- Add typed async Function Tools with explicit identities, read/write effects,
+  application authorization and write approval hooks. Calls validate native
+  Pydantic contracts and resolve dependencies in independent Dishka scopes.
+- Add optional Pydantic AI and MCP adapters over the same executor; keep
+  authentication, permitted discovery and business transactions application-owned.
+- Discover module `function_tools` collections and scaffold them with
+  `papilio module ... --function-tools`, independently of existing MCP tools.
+
 ## 1.1.0
 
 - Add independent `@handle_conflicts` for optional translation of database

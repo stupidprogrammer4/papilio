@@ -18,6 +18,7 @@ def _layout(
     http: bool,
     excel: bool,
     mcp: bool,
+    function_tools: bool,
 ) -> dict[str, str]:
     """The files a module is made of, as ``relative path -> template``."""
     if context or plain:
@@ -82,6 +83,13 @@ def _layout(
             if context or plain
             else "module/read_tool.tpl"
         )
+    if function_tools:
+        files["function_tools/__init__.py"] = ""
+        files["function_tools/operations.py"] = (
+            "module/run_function_tool.tpl"
+            if context or plain
+            else "module/read_function_tool.tpl"
+        )
     return {
         path: render(template, values) if template else ""
         for path, template in files.items()
@@ -118,6 +126,7 @@ def files(
     http: bool = False,
     excel: bool = False,
     mcp: bool = False,
+    function_tools: bool = False,
 ) -> dict[str, str]:
     if sum((cqrs, context, plain)) > 1:
         raise ValueError("choose only one of CQRS, context or plain")
@@ -139,6 +148,7 @@ def files(
         http=http,
         excel=excel,
         mcp=mcp,
+        function_tools=function_tools,
     )
 
 
@@ -153,6 +163,7 @@ def write(
     http: bool = False,
     excel: bool = False,
     mcp: bool = False,
+    function_tools: bool = False,
 ) -> Path:
     rendered = files(
         package,
@@ -163,6 +174,7 @@ def write(
         http=http,
         excel=excel,
         mcp=mcp,
+        function_tools=function_tools,
     )
     group, _, folder = _names(name, context or plain)
     parent = root / group if group else root

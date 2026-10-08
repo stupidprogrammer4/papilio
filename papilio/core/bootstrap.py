@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from elasticsearch import AsyncElasticsearch
     from elasticsearch.dsl import AsyncDocument
 
+    from papilio.function_tools.registry import FunctionTools
     from papilio.mcp.router import MCPRouter
 
 
@@ -33,6 +34,7 @@ class Bootstrapper:
         self.tables_path = "infra.tables"
         self.routers_path = "routers"
         self.tools_path = "tools"
+        self.function_tools_path = "function_tools"
         self.doc_path = "domain.documents"
 
     @cached_property
@@ -153,6 +155,23 @@ class Bootstrapper:
                     ):
                         routers.append(obj)
         return routers
+
+    def boot_function_tools(self) -> list[FunctionTools]:
+        """Collect explicit Function Tool collections from selected modules."""
+        from papilio.function_tools.registry import FunctionTools
+
+        collections: list[FunctionTools] = []
+        for module_name in self.submodules:
+            files = self.import_package_modules(
+                f"{module_name}.{self.function_tools_path}", raise_nested=True
+            )
+            for module in files:
+                for _, obj in inspect.getmembers(module):
+                    if isinstance(obj, FunctionTools) and not any(
+                        obj is seen for seen in collections
+                    ):
+                        collections.append(obj)
+        return collections
 
     def boot_sqlmodels(self) -> None:
         """Import every module's ``infra/tables.py``, which is what registers

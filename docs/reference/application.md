@@ -53,6 +53,9 @@ class Bootstrapper:
     def boot_mcp_tools(self) -> list[MCPRouter]:
         ...
 
+    def boot_function_tools(self) -> list[FunctionTools]:
+        ...
+
     def boot_sqlmodels(self) -> None:
         ...
 
