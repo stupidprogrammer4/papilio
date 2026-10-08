@@ -1,9 +1,12 @@
 """Optional native Pydantic AI function toolset adapter."""
 
+from functools import partial
 from typing import Any
 
+from anyio import to_thread
+
 try:
-    from pydantic_ai import RunContext, Tool
+    from pydantic_ai import RunContext, Tool, ToolFailed
     from pydantic_ai.toolsets import FunctionToolset
 except ModuleNotFoundError as exc:
     if exc.name == "pydantic_ai":
@@ -22,6 +25,14 @@ from papilio.function_tools.registry import ToolEffect
 def _model_tool(bound: BoundFunctionTool) -> Tool[Any]:
     definition = bound.definition
 
+    async def validate(ctx: RunContext[Any], **arguments: Any) -> None:
+        try:
+            await to_thread.run_sync(partial(bound.validate_input, arguments))
+        except ValueError:
+            raise ToolFailed(
+                "Invalid tool arguments; use the declared input schema."
+            ) from None
+
     async def invoke(ctx: RunContext[Any], **arguments: Any) -> Any:
         result = await bound.invoke(arguments, context=ctx.deps)
         return result
@@ -33,6 +44,7 @@ def _model_tool(bound: BoundFunctionTool) -> Tool[Any]:
         json_schema=bound.input_schema,
         takes_ctx=True,
         sequential=definition.sequential,
+        args_validator=validate,
     )
     tool.requires_approval = definition.effect == ToolEffect.WRITE
     tool.metadata = {

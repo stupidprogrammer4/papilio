@@ -70,14 +70,21 @@ class BoundFunctionTool:
         self.output = TypeAdapter(self.output_type)
         self.output_schema = self.output.json_schema(mode="serialization")
 
-    async def invoke(
-        self, arguments: Mapping[str, Any], *, context: Any
-    ) -> Any:
+    def validate_input(
+        self, arguments: Mapping[str, Any]
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        """Validate named inputs without resolving injected dependencies."""
         if self.injected_names.intersection(arguments):
             raise ValueError(
                 "Injected function tool arguments cannot be supplied"
             )
-        args, kwargs = self.validator.validate_python(dict(arguments))
+        result = self.validator.validate_python(dict(arguments))
+        return result
+
+    async def invoke(
+        self, arguments: Mapping[str, Any], *, context: Any
+    ) -> Any:
+        args, kwargs = self.validate_input(arguments)
         bound = self.signature.bind(*args, **kwargs)
         bound.apply_defaults()
         definition = self.definition

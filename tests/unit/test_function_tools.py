@@ -782,3 +782,217 @@ async def test_named_invocation_rejects_incompatible_positional_contracts(
     with pytest.raises(TypeError, match="named arguments"):
         FunctionToolExecutor([tools], container)
     assert calls.opened == []
+
+
+@pytest.mark.parametrize("effect", [ToolEffect.READ, ToolEffect.WRITE])
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"data": {"value": "private-secret-17"}},
+        {"data": {"value": 17}, "private-secret-17": 17},
+    ],
+)
+async def test_sdk_invalid_input_fails_before_guards_and_deferred_approval(
+    native, effect, arguments
+):
+    from pydantic_ai import Agent, DeferredToolRequests
+    from pydantic_ai.messages import (
+        ModelResponse,
+        TextPart,
+        ToolCallPart,
+        ToolReturnPart,
+    )
+    from pydantic_ai.models.function import FunctionModel
+
+    from papilio.function_tools.pydantic_ai import build_toolset
+
+    container, _, calls = native
+    guarded: list[bool] = []
+    tools = FunctionTools()
+
+    async def guard(context, arguments):
+        guarded.append(True)
+        return True
+
+    @tools.tool(
+        key="typed",
+        name="typed",
+        title="Typed operation",
+        description="Receive an integer.",
+        effect=effect,
+        authorize=guard,
+        approve=guard if effect == ToolEffect.WRITE else None,
+    )
+    async def typed(data: Input) -> int:
+        raise AssertionError("Invalid input must not execute")
+
+    def respond(messages, info):
+        returns = [
+            part
+            for message in messages
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ]
+        if returns:
+            assert returns[0].outcome == "failed"
+            assert "Invalid tool arguments" in str(returns[0].content)
+            assert "private-secret-17" not in str(returns[0].content)
+            assert len(str(returns[0].content)) < 200
+            return ModelResponse(parts=[TextPart("Input was rejected.")])
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "typed",
+                    arguments,
+                    tool_call_id="invalid-input",
+                )
+            ]
+        )
+
+    agent = Agent(
+        FunctionModel(respond),
+        toolsets=[build_toolset(FunctionToolExecutor([tools], container))],
+        output_type=[str, DeferredToolRequests],
+        retries=0,
+    )
+    result = await agent.run("Use a typed operation", deps=Actor())
+    assert result.output == "Input was rejected."
+    assert guarded == []
+    assert calls.opened == []
+
+
+@pytest.mark.parametrize("effect", [ToolEffect.READ, ToolEffect.WRITE])
+async def test_sdk_injected_arguments_fail_before_guards_and_approval(
+    native, effect
+):
+    from pydantic_ai import Agent, DeferredToolRequests
+    from pydantic_ai.messages import (
+        ModelResponse,
+        TextPart,
+        ToolCallPart,
+        ToolReturnPart,
+    )
+    from pydantic_ai.models.function import FunctionModel
+
+    from papilio.function_tools.pydantic_ai import build_toolset
+
+    container, _, calls = native
+    guarded: list[bool] = []
+    tools = FunctionTools()
+
+    async def guard(context, arguments):
+        guarded.append(True)
+        return True
+
+    @tools.tool(
+        key="variadic",
+        name="variadic",
+        title="Typed operation",
+        description="Receive typed extra values with trusted actor context.",
+        effect=effect,
+        authorize=guard,
+        approve=guard if effect == ToolEffect.WRITE else None,
+    )
+    async def variadic(
+        value: int, actor: FromDishka[Actor], **extra: int
+    ) -> int:
+        raise AssertionError("Injected arguments must not execute")
+
+    def respond(messages, info):
+        returns = [
+            part
+            for message in messages
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ]
+        if returns:
+            assert returns[0].outcome == "failed"
+            assert "Invalid tool arguments" in str(returns[0].content)
+            return ModelResponse(parts=[TextPart("Input was rejected.")])
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "variadic",
+                    {"value": 1, "actor": 123},
+                    tool_call_id="forged-actor",
+                )
+            ]
+        )
+
+    agent = Agent(
+        FunctionModel(respond),
+        toolsets=[build_toolset(FunctionToolExecutor([tools], container))],
+        output_type=[str, DeferredToolRequests],
+        retries=0,
+    )
+    result = await agent.run("Use a typed operation", deps=Actor())
+    assert result.output == "Input was rejected."
+    assert guarded == []
+    assert calls.opened == []
+
+
+async def test_sdk_validation_preserves_original_wire_arguments(native):
+    from typing import Annotated
+
+    from pydantic import BeforeValidator
+    from pydantic_ai import Agent
+    from pydantic_ai.messages import (
+        ModelResponse,
+        TextPart,
+        ToolCallPart,
+        ToolReturnPart,
+    )
+    from pydantic_ai.models.function import FunctionModel
+
+    from papilio.function_tools.pydantic_ai import build_toolset
+
+    container, _, _ = native
+    decoded: list[Any] = []
+
+    def decode(value):
+        decoded.append(value)
+        if not isinstance(value, str) or not value.startswith("encoded-"):
+            raise ValueError("Encoded identifier required")
+        return int(value.removeprefix("encoded-"))
+
+    class EncodedInput(BaseModel):
+        value: Annotated[int, BeforeValidator(decode)]
+
+    tools = FunctionTools()
+
+    async def read(data) -> int:
+        return data.value
+
+    read.__annotations__["data"] = EncodedInput
+    tools.tool(
+        key="encoded",
+        name="encoded",
+        title="Read encoded identifier",
+        description="Decode a wire identifier once for execution.",
+        effect=ToolEffect.READ,
+        authorize=authorize,
+    )(read)
+
+    def respond(messages, info):
+        returns = [
+            part
+            for message in messages
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ]
+        if returns:
+            assert returns[0].content == 7
+            assert returns[0].outcome == "success"
+            return ModelResponse(parts=[TextPart("Seven.")])
+        return ModelResponse(
+            parts=[ToolCallPart("encoded", {"data": {"value": "encoded-7"}})]
+        )
+
+    agent = Agent(
+        FunctionModel(respond),
+        toolsets=[build_toolset(FunctionToolExecutor([tools], container))],
+        retries=0,
+    )
+    result = await agent.run("Read an encoded identifier", deps=Actor())
+    assert result.output == "Seven."
+    assert decoded == ["encoded-7", "encoded-7"]
