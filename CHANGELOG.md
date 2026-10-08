@@ -9,6 +9,9 @@
   authentication, permitted discovery and business transactions application-owned.
 - Discover module `function_tools` collections and scaffold them with
   `papilio module ... --function-tools`, independently of existing MCP tools.
+- Bound SQL extras to SQLAlchemy 2.0 and SQLModel before 0.0.48, matching their
+  typed statement/result contracts. SQLAlchemy 2.1 and SQLModel 0.0.48 change
+  those contracts and require a migration.
 
 ## 1.1.0
 
