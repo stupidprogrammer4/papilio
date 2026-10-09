@@ -23,9 +23,9 @@ Papilio provides module discovery, dependency injection, HTTP responses,
 validation, database repositories, transactions and application scaffolding.
 Task execution and messaging belong to the independent **Papilio Tasks** project.
 
-**Papilio 1.3.1** validates Function Tool inputs before SDK execution and
-deferred approval, preserving application guards and independent Dishka scopes.
-See the [release notes](docs/releases/1.3.1.md) and
+**Papilio 1.3.2** reports declared input fields and native error codes when
+Function Tool validation fails before execution or deferred approval.
+See the [release notes](docs/releases/1.3.2.md) and
 [migration guide from Fastamu](docs/releases/1.0.0.md).
 Release assets are distributed on GitHub; this does not imply PyPI availability.
 Install this checkout with `pip install -e ".[dev]"`; imports and the CLI use `papilio`.

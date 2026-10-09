@@ -996,3 +996,109 @@ async def test_sdk_validation_preserves_original_wire_arguments(native):
     result = await agent.run("Read an encoded identifier", deps=Actor())
     assert result.output == "Seven."
     assert decoded == ["encoded-7", "encoded-7"]
+
+
+@pytest.mark.parametrize(
+    "arguments, expected",
+    [
+        ({"sort_by": None}, "data.sort_by: enum"),
+        (
+            {"values": {"private-key-17": "private-input-17"}},
+            "data.values: int_parsing",
+        ),
+        (
+            {"custom_value": "private-type-17"},
+            "data.custom_value: validation_error",
+        ),
+        (
+            {
+                "values": {
+                    f"private-key-{i}": "private-input-17" for i in range(10)
+                }
+            },
+            "data.values: int_parsing",
+        ),
+    ],
+)
+async def test_sdk_validation_feedback_is_actionable_bounded_and_private(
+    native, arguments, expected
+):
+    from enum import Enum
+
+    from pydantic import field_validator
+    from pydantic_ai import Agent
+    from pydantic_ai.messages import (
+        ModelResponse,
+        TextPart,
+        ToolCallPart,
+        ToolReturnPart,
+    )
+    from pydantic_ai.models.function import FunctionModel
+    from pydantic_core import PydanticCustomError
+
+    from papilio.function_tools.pydantic_ai import build_toolset
+
+    class SortBy(str, Enum):
+        TITLE = "title"
+
+    class FeedbackInput(BaseModel):
+        sort_by: SortBy = SortBy.TITLE
+        values: dict[str, int] = {}
+        custom_value: str | None = None
+
+        @field_validator("custom_value")
+        @classmethod
+        def reject_custom(cls, value):
+            raise PydanticCustomError(
+                value, "private-message-17", {"secret": "private-context-17"}
+            )
+
+    container, _, calls = native
+    guarded: list[bool] = []
+    tools = FunctionTools()
+
+    async def guard(context, arguments):
+        guarded.append(True)
+        return True
+
+    async def read(data) -> int:
+        raise AssertionError("Invalid input must not execute")
+
+    read.__annotations__["data"] = FeedbackInput
+    tools.tool(
+        key="feedback",
+        name="feedback",
+        title="Read sorted data",
+        description="Read a typed sorting request.",
+        effect=ToolEffect.READ,
+        authorize=guard,
+    )(read)
+
+    def respond(messages, info):
+        returns = [
+            part
+            for message in messages
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ]
+        if returns:
+            feedback = str(returns[0].content)
+            assert returns[0].outcome == "failed"
+            assert expected in feedback
+            assert "private-" not in feedback
+            assert len(feedback) <= 512
+            assert feedback.count(";") <= 2
+            return ModelResponse(parts=[TextPart("Input was rejected.")])
+        return ModelResponse(
+            parts=[ToolCallPart("feedback", {"data": arguments})]
+        )
+
+    agent = Agent(
+        FunctionModel(respond),
+        toolsets=[build_toolset(FunctionToolExecutor([tools], container))],
+        retries=0,
+    )
+    result = await agent.run("Read sorted data", deps=Actor())
+    assert result.output == "Input was rejected."
+    assert guarded == []
+    assert calls.opened == []
