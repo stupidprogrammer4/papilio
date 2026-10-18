@@ -23,7 +23,12 @@ Papilio provides module discovery, dependency injection, HTTP responses,
 validation, database repositories, transactions and application scaffolding.
 Task execution and messaging belong to the independent **Papilio Tasks** project.
 
-**Papilio 1.3.2** reports declared input fields and native error codes when
+**Papilio 1.4.0** discovers nested registration packages, including
+`routers/admin/`, `function_tools/admin/`, `infra/tables/` and
+`domain/documents/`. Existing file layouts remain supported. See the
+[release notes](docs/releases/1.4.0.md).
+
+Papilio 1.3.2 reports declared input fields and native error codes when
 Function Tool validation fails before execution or deferred approval.
 See the [release notes](docs/releases/1.3.2.md) and
 [migration guide from Fastamu](docs/releases/1.0.0.md).
