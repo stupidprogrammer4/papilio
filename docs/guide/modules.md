@@ -72,9 +72,25 @@ app:
   features: []
 ```
 
-The first module root is the CLI generation target. Packages must be importable and contain `__init__.py`. Discovery recognizes packages containing `domain` or `app`, including one group level. It imports `infra.tables` before providers, collects `APIRouter` objects from router files, and provider classes from `providers.py`.
+The first module root is the CLI generation target. Packages must be importable
+and contain `__init__.py`. Discovery recognizes packages containing `domain` or
+`app`, including one group level.
 
-Only provider classes defined in that `providers.py` are instantiated.
+Each selected registration path accepts a Python file or a package with nested
+files: `routers`, `tools`, `function_tools`, `providers`, `infra.tables` and
+`domain.documents`. For example, `routers/admin/categories.py` and
+`domain/documents/products.py` are discovered without forwarding imports or
+manual registration lists. Keep package initializers empty; define registrations
+in the leaf files. Files are visited in package order, so HTTP routes must still
+avoid ambiguous matching that depends on file order.
+
+Only these registration subtrees are imported. Ordinary domain data contracts,
+app implementations and other infra adapters are consumed through explicit
+imports. Table imports run before providers. Missing registration paths are
+allowed; broken imports inside a selected subtree fail startup.
+
+Only provider classes defined in their discovered provider file are instantiated,
+once per class. Router/tool objects and document classes are collected once.
 Imported base classes and providers re-exported from another module are not
 registered there. To use an external provider directly, pass its configured
 instance through `create_app(providers=[...])`.

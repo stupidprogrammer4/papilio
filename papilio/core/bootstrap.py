@@ -5,6 +5,7 @@ import inspect
 import pkgutil
 from collections.abc import Sequence
 from functools import cached_property, lru_cache
+from types import ModuleType
 from typing import TYPE_CHECKING
 
 from dishka import Provider
@@ -96,31 +97,28 @@ class Bootstrapper:
 
     def import_package_modules(
         self, path: str, *, raise_nested: bool = False
-    ) -> list:
-        """Import a package and every file inside it — packages keep an empty
-        ``__init__.py``, so the members live in the files.
+    ) -> list[ModuleType]:
+        """Import a selected file or its package's files recursively.
 
-        Args:
-            path (str): Dotted path of the package (e.g.
-                ``...listings.routers``).
-            raise_nested (bool): Re-raise import errors coming from inside a
-                file.
-        Returns:
-            (list): The imported file modules; empty when the package is
-                absent.
+        Package initializers load normally; registrations live in leaf files.
+        Missing paths are allowed. With ``raise_nested``, broken imports inside
+        the selected subtree propagate instead of hiding registrations.
         """
-        modules = []
         package = self.import_module(path, raise_nested=raise_nested)
-        if package is not None and hasattr(package, "__path__"):
-            for _, name, is_pkg in pkgutil.iter_modules(
+        modules = []
+        if package is None:
+            return modules
+        if hasattr(package, "__path__"):
+            for _, name, _ in pkgutil.iter_modules(
                 package.__path__, prefix=path + "."
             ):
-                if not is_pkg:
-                    module = self.import_module(
+                modules.extend(
+                    self.import_package_modules(
                         name, raise_nested=raise_nested
                     )
-                    if module is not None:
-                        modules.append(module)
+                )
+        else:
+            modules.append(package)
         return modules
 
     def boot_routers(self) -> list[APIRouter]:
@@ -174,20 +172,18 @@ class Bootstrapper:
         return collections
 
     def boot_sqlmodels(self) -> None:
-        """Import every module's ``infra/tables.py``, which is what registers
-        its tables on ``SQLModel.metadata``.
+        """Import each module's ``infra.tables`` file or package.
 
-        Only the table files: an entity declares fields and maps to nothing,
-        so importing `domain/entities.py` would add no metadata. This is
-        what alembic autogenerate and the test schema both read.
+        Only the selected table files register on ``SQLModel.metadata``;
+        unrelated domain and infra files are not scanned.
         """
         for module_name in self.submodules:
-            self.import_module(
+            self.import_package_modules(
                 f"{module_name}.{self.tables_path}", raise_nested=True
             )
 
     def boot_providers(self) -> list[Provider]:
-        """Instantiate providers defined in each feature's providers module.
+        """Instantiate local providers in each feature's file or package.
 
         Tables are imported first; concrete repositories name their table
         explicitly, and providers import those repositories. Imported provider
@@ -195,36 +191,40 @@ class Bootstrapper:
         """
         self.boot_sqlmodels()
         providers = []
+        seen: set[type[Provider]] = set()
         for module_name in self.submodules:
-            module = self.import_module(
+            files = self.import_package_modules(
                 f"{module_name}.{self.providers_path}", raise_nested=True
             )
-            if module:
+            for module in files:
                 for _, obj in inspect.getmembers(module):
                     if (
                         inspect.isclass(obj)
                         and issubclass(obj, Provider)
                         and obj is not Provider
                         and obj.__module__ == module.__name__
+                        and obj not in seen
                     ):
+                        seen.add(obj)
                         providers.append(obj())
         return providers
 
     def boot_documents(self) -> list[type[AsyncDocument]]:
-        """Find all AsyncDocument subclasses."""
+        """Find AsyncDocument subclasses in ``domain.documents`` once."""
         from elasticsearch.dsl import AsyncDocument
 
         es_documents = []
         for module_name in self.submodules:
-            module = self.import_module(
+            files = self.import_package_modules(
                 f"{module_name}.{self.doc_path}", raise_nested=True
             )
-            if module:
+            for module in files:
                 for _, obj in inspect.getmembers(module):
                     if (
                         inspect.isclass(obj)
                         and issubclass(obj, AsyncDocument)
                         and obj is not AsyncDocument
+                        and obj not in es_documents
                     ):
                         es_documents.append(obj)
         return es_documents

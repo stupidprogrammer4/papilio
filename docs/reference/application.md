@@ -44,7 +44,7 @@ class Bootstrapper:
     def import_module(self, path: str, *, raise_nested: bool=False):
         ...
 
-    def import_package_modules(self, path: str, *, raise_nested: bool=False) -> list:
+    def import_package_modules(self, path: str, *, raise_nested: bool=False) -> list[ModuleType]:
         ...
 
     def boot_routers(self) -> list[APIRouter]:
