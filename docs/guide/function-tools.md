@@ -152,6 +152,14 @@ call. A model argument cannot supply the context or injected dependencies.
 Mount and enter the native MCP application's lifespan using your host's existing
 lifecycle; the host retains ownership of the root Dishka container.
 
+For an independent process, use `papilio.mcp.application.create_app` with a
+`server_factory(container)` callback that creates the executor and calls
+`build_server`. The builder accepts the SDK's typed `auth`, `token_verifier`
+and `auth_server_provider` options. Native SDK authentication supplies the
+verified context; application authorization and write approval remain unchanged.
+The independent app owns the SDK lifespan and root cleanup, and loads no HTTP
+routers from the selected modules.
+
 This adapter requires explicit named parameters and additionally rejects
 `**kwargs` at composition because the MCP SDK's callable schema differs from
 its native Function Tool contract. Unexpected top-level MCP arguments are rejected;

@@ -20,6 +20,34 @@ Run the app normally with `papilio run`. MCP clients connect to
 requests and JSON responses by default. Papilio manages the SDK lifespan with
 the host application; no separate MCP process or container is needed.
 
+## Independent MCP application
+
+To run MCP separately from your HTTP API, use its own application factory:
+
+```python
+# shop/apps/mcp.py
+from papilio.mcp.application import create_app
+
+app = create_app()
+```
+
+Run this app on its own port with
+`papilio run --app shop.apps.mcp:app --port 8001`. Clients connect to `/mcp`
+without a trailing slash. This factory discovers providers and MCP tools, and
+owns its dependency root and the native SDK lifespan. It does not discover,
+import or mount HTTP routers, documentation or another application.
+
+Use `providers` for infrastructure bindings, `lifespan` for application startup
+and shutdown, and `http_options` for native Streamable HTTP configuration.
+For a configured native server or Function Tools, pass
+`server_factory(container) -> MCPServer`. The callback receives this app's root;
+the factory still owns its cleanup. The returned SDK app serves authentication
+metadata and protocol routes directly, without a host mounting prefix.
+
+This composition does not supply user authentication or business permissions.
+Configure the native server's auth provider/verifier and the application's tool
+guards before exposing employee operations.
+
 ## Define a tool
 
 Put tool definitions inside a selected module's `tools/` package. Keep its

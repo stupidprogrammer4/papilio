@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0
+
+- Add `papilio.mcp.application.create_app` for a standalone native MCP app with
+  its own dependency root and lifecycle, without discovering HTTP routers.
+- Forward native SDK authentication settings, token verifiers and authorization
+  server providers from the Function Tools MCP builder.
+- Preserve the existing HTTP API factory and mounted MCP integration.
+
 ## 1.3.0
 
 - Add typed async Function Tools with explicit identities, read/write effects,

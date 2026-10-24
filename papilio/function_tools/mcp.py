@@ -7,6 +7,11 @@ from typing import Any
 
 try:
     from mcp.server import MCPServer
+    from mcp.server.auth.provider import (
+        OAuthAuthorizationServerProvider,
+        TokenVerifier,
+    )
+    from mcp.server.auth.settings import AuthSettings
     from mcp.server.context import (
         CallNext,
         HandlerResult,
@@ -53,9 +58,18 @@ def build_server(
     *,
     current_context: Callable[[], Any],
     name: str,
+    auth: AuthSettings | None = None,
+    token_verifier: TokenVerifier | None = None,
+    auth_server_provider: OAuthAuthorizationServerProvider[Any, Any, Any]
+    | None = None,
 ) -> MCPServer:
     """Expose selected tools with application-owned identity and discovery."""
-    server = MCPServer(name)
+    server = MCPServer(
+        name,
+        auth=auth,
+        token_verifier=token_verifier,
+        auth_server_provider=auth_server_provider,
+    )
     allowed = {
         bound.definition.name: bound.signature.parameters.keys()
         for bound in executor.tools

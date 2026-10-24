@@ -33,6 +33,183 @@ from papilio.providers.db import SQLiteProvider
 from papilio.scaffolding import modules, project
 
 
+@pytest.mark.parametrize("path", ["/", "/gateway"])
+async def test_standalone_owns_authenticated_native_server_and_resources(
+    settings, path
+):
+    from mcp.server.auth.middleware.auth_context import get_access_token
+    from mcp.server.auth.provider import AccessToken
+    from mcp.server.auth.settings import AuthSettings
+    from pydantic import AnyHttpUrl
+
+    from papilio.function_tools.execution import FunctionToolExecutor
+    from papilio.function_tools.mcp import build_server
+    from papilio.function_tools.registry import FunctionTools, ToolEffect
+    from papilio.mcp.application import create_app as create_mcp_app
+
+    class Verifier:
+        async def verify_token(self, token: str) -> AccessToken | None:
+            if token != "test-only-access":
+                return None
+            return AccessToken(
+                token=token,
+                client_id="test-client",
+                subject="7",
+                scopes=["records"],
+                resource=f"http://localhost:8000{path}",
+            )
+
+    async def authorize(context, arguments):
+        return context is not None and context.subject == "7"
+
+    tools = FunctionTools()
+
+    @tools.tool(
+        key="double",
+        name="double",
+        title="Double value",
+        description="Double with a real scoped provider",
+        effect=ToolEffect.READ,
+        authorize=authorize,
+    )
+    async def double(
+        data: ToolInput, resource: FromDishka[PerCall]
+    ) -> ToolOutput:
+        return ToolOutput(doubled=data.value * 2, app_id=id(resource.shared))
+
+    provider = CallProvider()
+    roots = []
+
+    def factory(container):
+        roots.append(container)
+        return build_server(
+            FunctionToolExecutor([tools], container),
+            current_context=get_access_token,
+            name="Authenticated native tools",
+            auth=AuthSettings(
+                issuer_url=AnyHttpUrl("http://localhost:8000/"),
+                resource_server_url=AnyHttpUrl(f"http://localhost:8000{path}"),
+                required_scopes=["records"],
+                validate_token_resource=True,
+            ),
+            token_verifier=Verifier(),
+        )
+
+    app = create_mcp_app(
+        settings,
+        providers=[provider],
+        server_factory=factory,
+        http_options={"streamable_http_path": path},
+    )
+    assert roots == [app.state.dishka_container]
+    async with app.router.lifespan_context(app):
+        async with httpx2.AsyncClient(
+            transport=httpx2.ASGITransport(app=app),
+            base_url="http://localhost:8000",
+        ) as http:
+            endpoint = path
+            denied = await http.post(
+                endpoint,
+                headers={"Accept": "application/json, text/event-stream"},
+                json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+            )
+            assert denied.status_code == 401
+            assert "resource_metadata=" in denied.headers["WWW-Authenticate"]
+            metadata_url = (
+                denied.headers["WWW-Authenticate"]
+                .split('resource_metadata="')[1]
+                .split('"')[0]
+            )
+            metadata = await http.get(metadata_url)
+            assert metadata.status_code == 200
+            assert (
+                metadata.json()["resource"] == f"http://localhost:8000{path}"
+            )
+            assert provider.calls == []
+            http.headers["Authorization"] = "Bearer test-only-access"
+            async with Client(
+                streamable_http_client(
+                    "http://localhost:8000" + endpoint, http_client=http
+                )
+            ) as client:
+                listed = await client.list_tools()
+                assert {tool.name for tool in listed.tools} == {"double"}
+                result = await client.call_tool(
+                    "double", {"data": {"value": 3}}
+                )
+                assert not result.is_error
+                assert result.structured_content["doubled"] == 6
+            assert provider.calls and all(
+                call.closed for call in provider.calls
+            )
+    assert provider.shared.closed == 1
+
+
+async def test_standalone_discovers_tools_without_importing_http_routers(
+    settings, tmp_path, monkeypatch
+):
+    from papilio.mcp.application import create_app as create_mcp_app
+
+    package = "standalone_mcp_scaffold"
+    target = modules.write(
+        tmp_path / package, package, "health", plain=True, mcp=True
+    )
+    (target / "routers" / "operations.py").write_text(
+        "raise RuntimeError('HTTP router must not be imported by MCP')\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    settings.app.modules = [package]
+    importlib.invalidate_caches()
+    try:
+        app = create_mcp_app(settings)
+        async with app.router.lifespan_context(app):
+            async with protocol_client(app, path="/mcp") as (client, http):
+                listed = await client.list_tools()
+                assert {tool.name for tool in listed.tools} == {"health_run"}
+                result = await client.call_tool("health_run", {"data": {}})
+                assert not result.is_error
+                assert result.structured_content == {}
+                panel = await http.get("/panel/auth/me")
+                docs = await http.get("/openapi.json")
+                assert panel.status_code == docs.status_code == 404
+        assert not any(
+            name.startswith(f"{package}.health.routers")
+            for name in sys.modules
+        )
+    finally:
+        for name in list(sys.modules):
+            if name == package or name.startswith(package + "."):
+                del sys.modules[name]
+
+
+@pytest.mark.parametrize("fail", ["startup", "shutdown", None])
+async def test_standalone_closes_root_after_lifespan_failure(settings, fail):
+    from papilio.mcp.application import create_app as create_mcp_app
+
+    provider = CallProvider()
+
+    @asynccontextmanager
+    async def lifespan(app):
+        await app.state.dishka_container.get(Shared)
+        if fail == "startup":
+            raise RuntimeError("startup")
+        yield {"ready": True}
+        if fail == "shutdown":
+            raise RuntimeError("shutdown")
+
+    app = create_mcp_app(settings, providers=[provider], lifespan=lifespan)
+    if fail is not None:
+        with pytest.RaisesGroup(
+            pytest.RaisesExc(RuntimeError, match=fail), flatten_subgroups=True
+        ):
+            async with app.router.lifespan_context(app):
+                pass
+    else:
+        async with app.router.lifespan_context(app) as state:
+            assert state == {"ready": True}
+    assert provider.shared.closed == 1
+
+
 @pytest.fixture
 def settings(monkeypatch):
     monkeypatch.setattr("papilio.api.application.logger.setup", lambda _: None)
@@ -174,8 +351,10 @@ async def test_wire_schema_validation_injection_and_http_sharing(
     assert provider.shared.closed == 1
 
 
+@pytest.mark.parametrize("standalone", [False, True])
 async def test_concurrent_calls_and_apps_do_not_share_request_resources(
     settings,
+    standalone,
 ):
     tools = MCPRouter()
     entered = 0
@@ -192,9 +371,24 @@ async def test_concurrent_calls_and_apps_do_not_share_request_resources(
         return id(service)
 
     providers = [CallProvider(), CallProvider()]
-    apps = [
-        create_app(settings, mcp=[tools], providers=[p]) for p in providers
-    ]
+    if standalone:
+        from papilio.mcp.application import create_app as create_mcp_app
+        from papilio.mcp.server import build_server
+
+        apps = [
+            create_mcp_app(
+                settings,
+                providers=[provider],
+                server_factory=lambda container: build_server(
+                    [tools], container, name="Independent calls"
+                ),
+            )
+            for provider in providers
+        ]
+    else:
+        apps = [
+            create_app(settings, mcp=[tools], providers=[p]) for p in providers
+        ]
     async with apps[0].router.lifespan_context(apps[0]):
         async with apps[1].router.lifespan_context(apps[1]):
             results = await asyncio.gather(
@@ -235,7 +429,8 @@ async def test_errors_cleanup_and_hide_unexpected_details(settings):
                 assert provider.calls[-1].closed
 
 
-async def test_cancellation_finalizes_async_provider(settings):
+@pytest.mark.parametrize("standalone", [False, True])
+async def test_cancellation_finalizes_async_provider(settings, standalone):
     provider = CallProvider()
     tools = MCPRouter()
     entered = anyio.Event()
@@ -247,7 +442,19 @@ async def test_cancellation_finalizes_async_provider(settings):
         await anyio.sleep_forever()
         return "unreachable"
 
-    app = create_app(settings, mcp=[tools], providers=[provider])
+    if standalone:
+        from papilio.mcp.application import create_app as create_mcp_app
+        from papilio.mcp.server import build_server
+
+        app = create_mcp_app(
+            settings,
+            providers=[provider],
+            server_factory=lambda container: build_server(
+                [tools], container, name="Cancellable calls"
+            ),
+        )
+    else:
+        app = create_app(settings, mcp=[tools], providers=[provider])
     async with app.router.lifespan_context(app):
         with anyio.fail_after(5):
             async with anyio.create_task_group() as group:
@@ -394,7 +601,10 @@ def test_discovery_disabled_and_broken_tools_imports(
                 del sys.modules[name]
 
 
-async def test_database_commit_rollback_and_uow_lifetime(settings, tmp_path):
+@pytest.mark.parametrize("standalone", [False, True])
+async def test_database_commit_rollback_and_uow_lifetime(
+    settings, tmp_path, standalone
+):
     config = DatabaseConfig(
         dsn=f"sqlite+aiosqlite:///{tmp_path}/mcp.db",
         test_dsn="",
@@ -420,18 +630,29 @@ async def test_database_commit_rollback_and_uow_lifetime(settings, tmp_path):
         units.append(service.unit)
         return await service.uncommitted(value)
 
-    app = create_app(
-        settings,
-        mcp=[tools],
-        providers=[SQLiteProvider(config), RecordProvider()],
-    )
+    providers = [SQLiteProvider(config), RecordProvider()]
+    if standalone:
+        from papilio.mcp.application import create_app as create_mcp_app
+        from papilio.mcp.server import build_server
+
+        app = create_mcp_app(
+            settings,
+            providers=providers,
+            server_factory=lambda container: build_server(
+                [tools], container, name="Transactional calls"
+            ),
+        )
+    else:
+        app = create_app(settings, mcp=[tools], providers=providers)
     async with app.router.lifespan_context(app):
         db = await app.state.dishka_container.get(
             DBConnection[SQLiteUnitOfWork]
         )
         async with db.engine.begin() as connection:
             await connection.execute(text("CREATE TABLE records (id INTEGER)"))
-        async with protocol_client(app) as (client, _):
+        async with protocol_client(
+            app, path="/mcp" if standalone else "/mcp/"
+        ) as (client, _):
             success = await client.call_tool(
                 "write", {"value": 1, "fail": False}
             )
