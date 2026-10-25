@@ -5,6 +5,8 @@
 - Preserve original wire arguments in the Function Tools MCP adapter. The
   shared executor validates and transforms them once, including public ID
   codecs, while retaining SDK schemas, application guards and request scopes.
+- Resolve postponed input annotations in the defining tool's module, including
+  tools without injected dependencies.
 
 ## 1.5.0
 

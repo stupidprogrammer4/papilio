@@ -622,6 +622,17 @@ async def test_mcp_adapter_uses_same_executor_schema_and_application_guards(
         assert records.unit.is_open
         raise ForbiddenException("Business rejected", "business_rejected")
 
+    @tools.tool(
+        key="records.read-input",
+        name="read_input",
+        title="Read typed input",
+        description="Resolve postponed module annotations without injection.",
+        effect=ToolEffect.READ,
+        authorize=authorize,
+    )
+    async def read_input(data: Input) -> Output:
+        return Output(value=data.value, actor_id=1)
+
     executor = FunctionToolExecutor([tools], container)
     actor = Actor()
     server = build_server(
@@ -667,6 +678,14 @@ async def test_mcp_adapter_uses_same_executor_schema_and_application_guards(
                 assert created.structured_content == {
                     "value": 6,
                     "actor_id": 5,
+                }
+                direct = await client.call_tool(
+                    "read_input", {"data": {"value": 7}}
+                )
+                assert not direct.is_error
+                assert direct.structured_content == {
+                    "value": 7,
+                    "actor_id": 1,
                 }
                 rejected = await client.call_tool(
                     "reject_record", {"data": {"value": 1}}

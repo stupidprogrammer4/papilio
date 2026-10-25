@@ -3,7 +3,7 @@
 import inspect
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, get_type_hints
 
 from pydantic import SkipValidation
 
@@ -39,6 +39,8 @@ from papilio.function_tools.registry import ToolEffect
 def _invoke(
     bound: BoundFunctionTool, current_context: Callable[[], Any]
 ) -> Callable[..., Any]:
+    hints = get_type_hints(bound.definition.function, include_extras=True)
+
     @wraps(bound.function)
     async def invoke(**arguments: Any) -> Any:
         try:
@@ -54,7 +56,7 @@ def _invoke(
         bound.signature.replace(
             parameters=[
                 parameter.replace(
-                    annotation=SkipValidation[parameter.annotation]
+                    annotation=SkipValidation[hints[parameter.name]]
                 )
                 for parameter in bound.signature.parameters.values()
             ],
