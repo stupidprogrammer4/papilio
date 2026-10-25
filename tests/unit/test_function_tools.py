@@ -1102,3 +1102,89 @@ async def test_sdk_validation_feedback_is_actionable_bounded_and_private(
     assert result.output == "Input was rejected."
     assert guarded == []
     assert calls.opened == []
+
+
+@pytest.mark.parametrize("nested", [False, True], ids=["scalar", "model"])
+async def test_mcp_decodes_public_identifiers_once_through_http(
+    native, nested
+):
+    from typing import Annotated
+
+    import httpx2
+    from mcp import Client
+    from mcp.client.streamable_http import streamable_http_client
+    from pydantic import AfterValidator, create_model
+
+    from papilio.function_tools.mcp import build_server
+    from papilio.tools.ids import IDEncryption
+
+    container, _, _ = native
+    codec = IDEncryption(
+        mod=99_999_989, coff=43_109_723, offset=23_200_000_000
+    )
+    decoded: list[int] = []
+
+    def decode(value: int) -> int:
+        decoded.append(value)
+        return codec.decode(value)
+
+    identifier = Annotated[int, AfterValidator(decode)]
+    model = create_model("PublicReference", value=(identifier, ...))
+
+    async def read(value, actor: FromDishka[Actor]) -> Output:
+        actual = value.value if nested else value
+        return Output(value=actual, actor_id=actor.id)
+
+    read.__annotations__["value"] = model if nested else identifier
+    tools = FunctionTools()
+    tools.tool(
+        key="public-reference",
+        name="public_reference",
+        title="Read reference",
+        description="Resolve the public identifier once.",
+        effect=ToolEffect.READ,
+        authorize=authorize,
+    )(read)
+    actor = Actor(id=5)
+    executor = FunctionToolExecutor([tools], container)
+    server = build_server(
+        executor,
+        current_context=lambda: actor,
+        name="References",
+    )
+    app = server.streamable_http_app(stateless_http=True, json_response=True)
+    public_id = codec.encode(7)
+    async with app.router.lifespan_context(app):
+        async with httpx2.AsyncClient(
+            transport=httpx2.ASGITransport(app=app)
+        ) as http:
+            async with Client(
+                streamable_http_client(
+                    "http://localhost:8000/mcp", http_client=http
+                )
+            ) as client:
+                listing = await client.list_tools()
+                expected = (
+                    executor.tools[0].input_schema["$defs"]["PublicReference"]
+                    if nested
+                    else executor.tools[0].input_schema["properties"]["value"]
+                )
+                assert (
+                    listing.tools[0].input_schema["properties"]["value"]
+                    == expected
+                )
+                assert set(listing.tools[0].input_schema["properties"]) == {
+                    "value"
+                }
+                result = await client.call_tool(
+                    "public_reference",
+                    {"value": {"value": public_id} if nested else public_id},
+                )
+                assert not result.is_error
+                assert result.structured_content == {"value": 7, "actor_id": 5}
+                assert decoded == [public_id]
+                rejected = await client.call_tool(
+                    "public_reference",
+                    {"value": {"value": 7} if nested else 7},
+                )
+                assert rejected.is_error

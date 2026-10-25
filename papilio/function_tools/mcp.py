@@ -5,6 +5,8 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
+from pydantic import SkipValidation
+
 try:
     from mcp.server import MCPServer
     from mcp.server.auth.provider import (
@@ -48,7 +50,16 @@ def _invoke(
     setattr(
         invoke,
         "__signature__",
-        bound.signature.replace(return_annotation=bound.output_type),
+        # Preserve the schema; the executor validates wire values once.
+        bound.signature.replace(
+            parameters=[
+                parameter.replace(
+                    annotation=SkipValidation[parameter.annotation]
+                )
+                for parameter in bound.signature.parameters.values()
+            ],
+            return_annotation=bound.output_type,
+        ),
     )
     return invoke
 

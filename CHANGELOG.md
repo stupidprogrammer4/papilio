@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1
+
+- Preserve original wire arguments in the Function Tools MCP adapter. The
+  shared executor validates and transforms them once, including public ID
+  codecs, while retaining SDK schemas, application guards and request scopes.
+
 ## 1.5.0
 
 - Add `papilio.mcp.application.create_app` for a standalone native MCP app with
