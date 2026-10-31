@@ -80,6 +80,15 @@ class StreamWorksheet:
                 )
             )
             self.repeat_styles = self.row_styles(repeat_cells)
+        self.repeat_cells = tuple(
+            Cell(
+                target,
+                row=1,
+                column=1,
+                style_array=style[0] if style is not None else None,
+            )
+            for style in self.repeat_styles
+        )
 
     def row_styles(self, cells):
         return tuple(
@@ -112,18 +121,28 @@ class StreamWorksheet:
             if values is not None and index < len(values):
                 value = values[index]
             style = row_styles[index] if index < len(row_styles) else None
-            # Cell clones the target-bound style array. Avoid a named-style
-            # lookup for every generated cell and keep each cell independent.
-            cell = Cell(
-                self.target,
-                row=1,
-                column=1,
-                value=value,
-                style_array=style[0] if style is not None else None,
-            )
-            if style is not None and isinstance(
-                value, (date, time, timedelta)
+            temporal = isinstance(value, (date, time, timedelta))
+            if (
+                not existing
+                and values is not None
+                and index < len(self.repeat_cells)
+                and not temporal
             ):
+                # Native append consumes cells synchronously. Scalar binding
+                # leaves their registered styles unchanged between rows.
+                cell = self.repeat_cells[index]
+                cell.value = value
+            else:
+                # Temporal binding can change number formats, so it needs an
+                # independent style array even on generated rows.
+                cell = Cell(
+                    self.target,
+                    row=1,
+                    column=1,
+                    value=value,
+                    style_array=style[0] if style is not None else None,
+                )
+            if style is not None and temporal:
                 # Preserve template formatting after native temporal binding,
                 # just as assigning a template style after setting the value.
                 cell.number_format = style[1]

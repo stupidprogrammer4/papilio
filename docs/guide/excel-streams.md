@@ -53,8 +53,11 @@ formulas; callers own appropriate escaping of untrusted spreadsheet content.
 
 A stream creates one write-only workbook and saves it once. Its memory depends on
 the template, worksheet/style metadata and current bounded batch, rather than all
-generated cells. Worksheet XML and the completed archive use disk space in an
-owned staging directory beside the output. Multiple sessions use independent
+generated cells. Repeat-row styles are prepared once. The worker reuses scalar
+cells only after synchronous XML output; temporal values use independent styles
+so automatic date formatting cannot affect later rows. Worksheet XML and the
+completed archive use disk space in an owned staging directory beside the output.
+Multiple sessions use independent
 workers. `session.output` and `session.max_batch_rows` expose the destination and
 batch limit; the stateless writer needs no application shutdown hook.
 

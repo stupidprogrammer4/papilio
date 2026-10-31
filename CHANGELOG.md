@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.1
+
+- Reuse a bounded set of public openpyxl cells for generated scalar rows in
+  streaming exports. Preserve mixed value types and repeated formatting;
+  temporal values retain independent styles.
+- Compare export performance with an equally formatted normal-workbook
+  reference, semantic formatting hashes and explicit XML engine information.
+  Earlier unformatted-reference timings do not measure equivalent throughput.
+
 ## 1.6.0
 
 - Add `ExcelStreamWriter` for bounded asynchronous row batches in a dedicated

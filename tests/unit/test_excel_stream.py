@@ -4,6 +4,7 @@ import time
 from copy import copy
 from datetime import date, datetime, timedelta
 from datetime import time as datetime_time
+from decimal import Decimal
 from multiprocessing import active_children
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from zipfile import ZipFile
 
 import pytest
 from openpyxl import Workbook, load_workbook
+from openpyxl.cell.rich_text import CellRichText
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.workbook.defined_name import DefinedName
@@ -224,6 +226,63 @@ async def test_stream_temporal_values_keep_each_repeated_style_independent(
         )
     finally:
         workbook.close()
+
+
+async def test_stream_repeated_scalar_cells_preserve_values_across_batches(
+    template, tmp_path
+):
+    output = tmp_path / "scalar-batches.xlsx"
+    values = (
+        "template overlay",
+        12,
+        Decimal("12.345"),
+        CellRichText(["=1+2"]),
+        None,
+        datetime(2026, 10, 31, 12, 30),
+        42,
+        False,
+        "=2+3",
+        "آخرین مقدار",
+    )
+    async with ExcelStreamWriter(max_batch_rows=2).open(
+        output, template=template
+    ) as session:
+        for offset in range(0, len(values), 2):
+            await session.write_rows(
+                [
+                    Values(values=(value,))
+                    for value in values[offset : offset + 2]
+                ],
+                sheet="Data",
+                start_row=offset + 2,
+            )
+    workbook = load_workbook(output)
+    source = load_workbook(template)
+    try:
+        sheet = workbook["Data"]
+        assert [sheet.cell(row, 1).value for row in (2, 3, 4, 5, 6)] == [
+            "template overlay",
+            12,
+            12.345,
+            "=1+2",
+            None,
+        ]
+        assert sheet["A5"].data_type == "s"
+        assert isinstance(sheet["A7"].value, (int, float))
+        assert sheet["A8"].value == 42
+        assert sheet["A9"].value is False
+        assert sheet["A10"].value == "=2+3"
+        assert sheet["A10"].data_type == "f"
+        assert sheet["A11"].value == "آخرین مقدار"
+        assert sheet["A11"].data_type == "s"
+        for row in range(2, 12):
+            cell = sheet.cell(row, 1)
+            assert cell.number_format == "General"
+            assert copy(cell.alignment) == copy(source["Data"]["A2"].alignment)
+            assert sheet.cell(row, 2).number_format == "#,##0"
+    finally:
+        workbook.close()
+        source.close()
 
 
 async def test_stream_per_sheet_repeat_rows_and_forward_gap(
