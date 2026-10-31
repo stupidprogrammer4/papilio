@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.0
+
+- Add `ExcelStreamWriter` for bounded asynchronous row batches in a dedicated
+  spawned worker. Convert rows and write the workbook there, with backpressure
+  between batches and one final save.
+- Preserve supported template sheet order, values and formatting in streaming
+  exports. Reject unsupported template features rather than silently losing
+  them; retain `ExcelWriter` for existing workbook editing.
+- Publish the completed workbook atomically on successful context exit and
+  clean up worker resources and temporary output on errors or cancellation.
+
 ## 1.5.1
 
 - Preserve original wire arguments in the Function Tools MCP adapter. The

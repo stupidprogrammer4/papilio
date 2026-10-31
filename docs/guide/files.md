@@ -1,6 +1,6 @@
 # Async files, CSV and Excel
 
-Each format has separate reader and writer tools. File and CSV operations use AnyIO worker threads for blocking I/O. Excel jobs run in process pools. Async APIs keep blocking work off the event loop; they do not make a complete file operation atomic or install retry behavior.
+Each format has separate reader and writer tools. File and CSV operations use AnyIO worker threads for blocking I/O. `ExcelReader` and `ExcelWriter` jobs run in process pools. Async APIs keep blocking work off the event loop; they do not make a complete file operation atomic or install retry behavior.
 
 ## Text and binary files
 
@@ -114,6 +114,17 @@ memory costs.
 `read_cell` uses a read-only workbook to avoid loading all worksheet cells.
 It scans up to the requested row, so cells near the end still require more
 work. Formula cells return the workbook's cached result without recalculation.
+
+## Stream large Excel exports
+
+For sequential exports, use the independent
+[`ExcelStreamWriter`](excel-streams.md). Each session owns one spawned worker
+and a write-only workbook, accepts bounded `ExcelRow` batches, and publishes the
+file atomically at successful context exit. Its template overlay supports a
+limited set of workbook features; unsupported constructs fail explicitly. The
+stateless stream writer needs no shutdown hook. See the
+[streaming guide and runnable example](excel-streams.md) for its supported
+formatting, forward-only positions and cancellation contract.
 
 ## Connect tools to an API
 

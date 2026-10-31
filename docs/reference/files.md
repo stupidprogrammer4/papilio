@@ -119,6 +119,45 @@ class ExcelWriter:
         ...
 ```
 
+## `papilio.infra.excel.stream`
+
+The [streaming guide](../guide/excel-streams.md) defines supported templates,
+forward-only overlays, bounded batches, worker ownership and atomic publication.
+The existing `ExcelWriter` retains its arbitrary-editing contract.
+
+```python
+class ExcelStreamWriter:
+    def __init__(self, max_batch_rows: int = 250) -> None: ...
+
+    @property
+    def max_batch_rows(self) -> int: ...
+
+    @asynccontextmanager
+    async def open(
+        self, output: str | Path, *, template: str | Path,
+        repeat_style_row: int | Mapping[str, int] | None = 2,
+    ) -> AsyncIterator[ExcelStreamSession]: ...
+
+class ExcelStreamSession:
+    @property
+    def output(self) -> Path: ...
+
+    @property
+    def max_batch_rows(self) -> int: ...
+
+    async def write_row(
+        self, row: ExcelRow, *, sheet: str | None = None,
+        start_row: int | None = None,
+    ) -> None: ...
+
+    async def write_rows(
+        self, rows: Sequence[ExcelRow], *, sheet: str | None = None,
+        start_row: int | None = None,
+    ) -> None: ...
+
+class ExcelStreamError(RuntimeError): ...
+```
+
 ## `papilio.infra.files.reader`
 
 ### `FileReader`
