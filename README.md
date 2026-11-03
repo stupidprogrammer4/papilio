@@ -824,6 +824,13 @@ backend-specific UoW when it is first resolved and closes it at scope exit. Scop
 never commits. SQLAlchemy discards any outstanding transaction when the session
 closes. Repositories execute SQL through `uow.execute()`; they do not own the transaction.
 
+Outside integrations that already own a request, use
+`papilio.infra.scopes.request_scoped(container_getter=...)` to bind an async
+entrypoint to native scoped dependency injection. It reuses an existing request
+or owns a short request scope and closes its resources, without committing.
+Services keep constructor injection. See [request-scoped functions](docs/guide/request-scopes.md)
+for composition, nested/concurrent ownership and typed direct calls.
+
 Use `@transactional` on a writing application method. It requires an open UoW,
 commits before returning, and rolls back on an exception or cancellation before
 commit. Nested decorated calls join the outer operation; only its owner commits.

@@ -34,6 +34,11 @@ class StockService:
 
 The decorator requires an open, active UoW, supplied by the request provider or a manual UoW context. Function inspection happens when the decorator is applied. Outside HTTP, enter `async with connection.uow()` before calling the service.
 
+For repeated scoped dependency resolution outside HTTP, bind an execution
+adapter with [request-scoped functions](request-scopes.md). That adapter owns
+session lifetime through the native provider; `@transactional` keeps ownership
+of commit/rollback.
+
 ## Nested operations
 
 Nested transactional services join the outer operation. They do not commit independently. If an inner operation fails, the transaction becomes rollback-only. Even when its caller catches the error, the outer boundary raises `TransactionRollbackOnly` instead of committing partial work.

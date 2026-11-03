@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0
+
+- Add `request_scoped` for async function execution with native Dishka scoped
+  injection, nested request reuse and independent concurrent root calls.
+  Keep provider cleanup and transaction ownership separate.
+
 ## 1.6.1
 
 - Reuse a bounded set of public openpyxl cells for generated scalar rows in

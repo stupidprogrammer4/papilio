@@ -39,6 +39,7 @@ nav:
       - MCP server tools: guide/mcp.md
       - Function Tools: guide/function-tools.md
       - Ready providers: guide/providers.md
+      - Request-scoped functions: guide/request-scopes.md
       - Configuration: guide/configuration.md
       - SQL models and fields: guide/models.md
       - Repositories and reporting: guide/repositories.md
