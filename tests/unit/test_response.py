@@ -172,3 +172,66 @@ async def test_rate_limit_error_preserves_headers_and_body() -> None:
             "retry_after": 30,
         },
     }
+
+
+@pytest.mark.parametrize("success", [True, False])
+def test_null_root_data_is_omitted(success: bool) -> None:
+    response = APIResponse[Payload, None](success=success, data=None)
+    assert response.model_dump(mode="json") == {"success": success}
+
+
+def test_null_from_data_omits_all_empty_root_fields() -> None:
+    response = APIResponse[None, None].from_data(None)
+    assert response.model_dump(mode="json") == {"success": True}
+    assert response.model_dump_json() == '{"success":true}'
+
+
+def test_empty_data_collection_and_empty_message_are_preserved() -> None:
+    response = APIResponse[Payload, None].from_data([], message_code="")
+    assert response.model_dump(mode="json") == {
+        "success": True,
+        "data": [],
+        "message_code": "",
+    }
+
+
+class NullablePayload(BaseModel):
+    value: int | None
+    active: bool
+    items: list[int | None]
+
+
+class NullableMetadata(BaseModel):
+    cursor: str | None
+
+
+@pytest.mark.parametrize("with_data", [True, False])
+async def test_native_http_omits_root_nulls_and_preserves_nested_nulls(
+    with_data: bool,
+) -> None:
+    app = FastAPI()
+
+    @app.get(
+        "/response",
+        response_model=APIResponse[NullablePayload, NullableMetadata],
+    )
+    async def response() -> APIResponse[NullablePayload, NullableMetadata]:
+        data = None
+        if with_data:
+            data = NullablePayload(value=None, active=False, items=[None, 0])
+        return APIResponse[NullablePayload, NullableMetadata](
+            success=True,
+            data=data,
+            meta=NullableMetadata(cursor=None),
+        )
+
+    async with AsyncClient(
+        transport=ASGITransport(app),
+        base_url="http://test",
+    ) as client:
+        result = await client.get("/response")
+    expected: dict[str, object] = {"success": True, "meta": {"cursor": None}}
+    if with_data:
+        expected["data"] = {"value": None, "active": False, "items": [None, 0]}
+    assert result.status_code == 200
+    assert result.json() == expected

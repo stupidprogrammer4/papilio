@@ -1312,13 +1312,14 @@ Every endpoint returns the same envelope, `APIResponse[Data, Meta]`:
 ```json
 {
   "success": true,
-  "message_code": null,
   "data": { "id": 1, "name": "Acme" },
-  "meta": { "pager": { "total_items": 57, "total_pages": 3, "has_prev": false, "has_next": true } },
-  "error": null,
-  "errors": null
+  "meta": { "pager": { "total_items": 57, "total_pages": 3, "has_prev": false, "has_next": true } }
 }
 ```
+
+Null root fields (`data`, `meta`, `message_code`, `error`, `errors`) are
+omitted in model dumps and FastAPI responses. Nested null values, zero, False
+and empty collections are preserved; no global `exclude_none` is needed.
 
 Declare it once per router and reuse:
 

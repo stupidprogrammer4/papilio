@@ -24,6 +24,7 @@ class APIResponse[TOut: BaseModel | None, TMeta: BaseModel | None](BaseModel):
 
     _optional_envelope: ClassVar[tuple[str, ...]] = (
         "message_code",
+        "data",
         "meta",
         "error",
         "errors",

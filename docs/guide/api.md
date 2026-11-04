@@ -75,7 +75,7 @@ Serialized result:
 {"success":true,"data":{"id":1,"title":"Notebook"}}
 ```
 
-`BaseOutput.from_obj` and `from_objs` validate output from objects. At an endpoint, declare `response_model=APIResponse[ProductOut, None]` so FastAPI validates and documents the response. Absent optional envelope fields are omitted; `data` itself can remain null on error responses.
+`BaseOutput.from_obj` and `from_objs` validate output from objects. At an endpoint, declare `response_model=APIResponse[ProductOut, None]` so FastAPI validates and documents the response. Every null root envelope field, including `data`, is omitted. Nested nulls, zero, false and empty values are preserved.
 
 ## Patch and deletion results
 

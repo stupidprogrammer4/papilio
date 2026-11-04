@@ -128,7 +128,7 @@ class APIResponse[TOut: BaseModel | None, TMeta: BaseModel | None](BaseModel):
     meta: Optional[TMeta] = None
     error: Optional[ErrorType] = None
     errors: Optional[Sequence[ErrorType]] = None
-    _optional_envelope: ClassVar[tuple[str, ...]] = ('message_code', 'meta', 'error', 'errors')
+    _optional_envelope: ClassVar[tuple[str, ...]] = ('message_code', 'data', 'meta', 'error', 'errors')
 
     @model_serializer(mode='wrap')
     def _omit_empty_envelope(self, handler: SerializerFunctionWrapHandler) -> Any:
