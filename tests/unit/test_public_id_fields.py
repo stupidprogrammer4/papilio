@@ -85,6 +85,9 @@ def test_outputs_encode_any_field_without_decoding_internal_inputs(
         "reviewer_id": None,
         "brand_id": 1033,
     }
+    properties = Output.model_json_schema(mode="serialization")["properties"]
+    assert properties["user_id"]["type"] == "integer"
+    assert properties["user_ids"]["items"]["type"] == "integer"
 
 
 def test_plain_fields_and_models_remain_unencoded(configured: None) -> None:

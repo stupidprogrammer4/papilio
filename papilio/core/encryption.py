@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from papilio.tools.ids import IDEncryption
 
@@ -23,6 +23,12 @@ class IDEncryptionConfig(BaseModel):
     coff: int = Field(repr=False)
     offset: int = 0
     entity: str | None = None
+
+
+class _IDEncryptionFile(RootModel[dict[str, IDEncryptionConfig]]):
+    """Resource-keyed file input, with private values hidden in errors."""
+
+    model_config = ConfigDict(hide_input_in_errors=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,10 +61,7 @@ def get_id_encryption_settings(
     source = path or Path(
         os.environ.get("PAPILIO_ENCRYPTION", "encryption.json")
     )
-    configs = TypeAdapter(
-        dict[str, IDEncryptionConfig],
-        config=ConfigDict(hide_input_in_errors=True),
-    ).validate_json(source.read_bytes())
+    configs = _IDEncryptionFile.model_validate_json(source.read_bytes()).root
     resources: dict[str, IDEncryption] = {}
     entities: dict[str, IDEncryption] = {}
     for resource, config in configs.items():

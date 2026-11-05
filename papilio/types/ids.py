@@ -36,4 +36,4 @@ def IDOutput(resource: str) -> PlainSerializer:
         KeyError: The resource is absent from configuration.
     """
     codec = get_id_encryption_settings().resources[resource]
-    return PlainSerializer(codec.encode, return_type=int)
+    return PlainSerializer(codec.encode)
