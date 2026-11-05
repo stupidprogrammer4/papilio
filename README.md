@@ -1609,6 +1609,49 @@ The route speaks public ids, the service speaks row ids, and a public id that do
 not decode answers **404** — a forged id must be indistinguishable from one that
 never existed, or the endpoint becomes an oracle for valid ids.
 
+For JSON-configured field IDs, use directional metadata on any field name:
+
+```python
+from typing import Annotated
+from papilio.core.encryption import get_id_encryption_settings
+from papilio.schemas.inputs import BaseDTO
+from papilio.schemas.outputs import BaseOutput
+from papilio.types.aliases import IdType
+from papilio.types.ids import IDInput, IDOutput
+
+class AssignmentInput(BaseDTO):
+    user_id: Annotated[IdType, IDInput("access/users")]
+
+class AssignmentOutput(BaseOutput):
+    user_id: Annotated[int, IDOutput("access/users")]
+
+app = create_app(
+    settings,
+    id_encryptions=get_id_encryption_settings().entities,
+)
+```
+
+The same `IDInput` metadata works for HTTP path/query parameters. Invalid IDs
+use normal Pydantic validation (422); legacy `decode_path_id` keeps its 404
+contract. `IDOutput` serializes internal IDs once, including foreign ID fields,
+list items and nullable references; trusted internal DTOs/models keep plain IDs.
+
+Keep all resource settings in one private `encryption.json`, or select an
+explicit file with `PAPILIO_ENCRYPTION`. For example:
+
+```json
+{"access/users": {"mod": 90000, "coff": 7, "offset": 10000, "entity": "User"}}
+```
+
+These are demonstration values. Preserve private coefficients once IDs have
+been issued. The loader caches validated read-only mappings and never falls
+back to a sample or generates replacement coefficients. `entity` is optional;
+when supplied, `.entities` binds that entity to native HTTP NotFound error
+encoding. Configured ID errors use a standard public message and public
+`identifier_value`; the original app exception remains unchanged. Other
+entities and non-ID errors retain their existing representation. Loading JSON
+does not opt any model field into encoding automatically.
+
 ### Other utilities
 
 `utils.dates` (timezone-aware UTC helpers plus Jalali conversion), `utils.persian`

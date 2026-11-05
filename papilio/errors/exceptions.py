@@ -92,11 +92,14 @@ class NotFoundException(APPException[NotFoundErrorOut]):
         entity: str,
         identifier: str,
         identifier_value: Any,
+        *,
+        identifier_is_public: bool = False,
     ) -> None:
         super().__init__(message, message_code, HTTPStatus.NOT_FOUND)
         self.entity = entity
         self.identifier = identifier
         self.identifier_value = identifier_value
+        self.identifier_is_public = identifier_is_public
 
     def as_schema(self) -> NotFoundErrorOut:
         # identifier_value is Any (int ids, str slugs, …); the wire schema is

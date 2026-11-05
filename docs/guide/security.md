@@ -76,6 +76,21 @@ for a missing scope; applications can supply a different authorization policy.
 
 `IDEncryption` and `BaseIDOutput` provide encoded public IDs. `decode_path_id(encryption, entity, param="id")` builds a dependency for path decoding; decoding failure becomes 404. Encoding an ID does not authorize access to its entity. Refer to the [security signatures](../reference/utilities.md) for key construction and encryption methods before enabling this feature.
 
+For JSON-configured resources, annotate an input with
+`Annotated[IdType, IDInput("access/users")]` or an output with
+`Annotated[int, IDOutput("access/users")]`, importing the metadata from
+`papilio.types.ids`. This works with arbitrary foreign ID field names, list
+items and optional references. Keep trusted app DTOs and persistence IDs plain.
+Input metadata uses normal Pydantic 422 validation, including paths and queries.
+
+`papilio.core.encryption.get_id_encryption_settings()` reads the private
+`encryption.json` once; `PAPILIO_ENCRYPTION` selects a different file. Each JSON
+resource entry contains `mod`, `coff`, optional `offset` and optional `entity`.
+Pass `.entities` as `create_app(..., id_encryptions=...)` to encode configured
+entities' native ID-not-found errors without exposing internal identifiers.
+Missing configuration and incompatible parameters fail explicitly. Keep
+coefficients stable; changing them invalidates previously issued public IDs.
+
 ## Configure rate limiting
 
 Select memory or Redis as described in [ready tools](tools.md#choose-a-rate-limit-backend), and explicitly register the chosen provider. For HTTP limiting, configure:

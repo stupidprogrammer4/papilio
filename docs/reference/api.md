@@ -188,7 +188,7 @@ def unexcepted_error_handler(request: Request, exc: Exception) -> JSONResponse:
 ### `setup_exception_handlers`
 
 ```python
-def setup_exception_handlers(app: FastAPI) -> None:
+def setup_exception_handlers(app: FastAPI, *, id_encryptions: Mapping[str, IDEncryption] | None = None) -> None:
     ...
 ```
 

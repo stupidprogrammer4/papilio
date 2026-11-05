@@ -67,6 +67,51 @@ async def test_application_instances_own_settings_and_resource_lifetimes(
     assert resource_b.closed
 
 
+async def test_public_id_error_bindings_belong_to_the_application(
+    app_settings: Settings,
+) -> None:
+    from fastapi import APIRouter
+    from httpx import ASGITransport, AsyncClient
+
+    from papilio.core import resources
+    from papilio.errors.exceptions import NotFoundException
+    from papilio.tools.ids import IDEncryption
+
+    router = APIRouter()
+    error = NotFoundException(
+        entity="User",
+        identifier="id",
+        identifier_value=42,
+        message="Missing internal user 42",
+        message_code=resources.NOT_FOUND_ERROR,
+    )
+
+    @router.get("/missing")
+    async def missing() -> None:
+        raise error
+
+    first_codec = IDEncryption(97, 7, 500)
+    second_codec = IDEncryption(97, 11, 1000)
+    for codec in (first_codec, second_codec):
+        app = create_app(
+            app_settings,
+            routers=(router,),
+            middleware=(),
+            docs_url=None,
+            id_encryptions={"User": codec},
+        )
+        async with app.router.lifespan_context(app):
+            async with AsyncClient(
+                transport=ASGITransport(app), base_url="http://test"
+            ) as client:
+                response = await client.get("/missing")
+        assert response.status_code == 404
+        assert response.json()["error"]["identifier_value"] == str(
+            codec.encode(42)
+        )
+    assert error.identifier_value == 42
+
+
 async def test_startup_failure_closes_acquired_resources(monkeypatch):
     from contextlib import asynccontextmanager
 

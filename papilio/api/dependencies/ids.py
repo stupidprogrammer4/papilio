@@ -47,6 +47,7 @@ def decode_path_id(
                 entity=entity,
                 identifier="id",
                 identifier_value=public_id,
+                identifier_is_public=True,
             )
         return internal
 

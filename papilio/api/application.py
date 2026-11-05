@@ -18,6 +18,7 @@ from papilio.core.bootstrap import Bootstrapper
 from papilio.core.config import Settings, get_settings
 from papilio.core.logger import logger
 from papilio.providers.base import CoreProvider
+from papilio.tools.ids import IDEncryption
 
 from .docs import setup_docs
 from .middlewares.logging import LoggingMiddleware
@@ -36,6 +37,7 @@ def create_app(
     lifespan: Lifespan[FastAPI] | None = None,
     exception_handlers: Mapping[int | type[Exception], HTTPExceptionHandler]
     | None = None,
+    id_encryptions: Mapping[str, IDEncryption] | None = None,
     docs_url: str | None = "/docs",
     mcp: bool | Sequence[MCPRouter] = False,
     mcp_path: str = "/mcp",
@@ -123,7 +125,7 @@ def create_app(
         middleware=middleware,
     )
     setup_dishka(container, app)
-    setup_exception_handlers(app)
+    setup_exception_handlers(app, id_encryptions=id_encryptions)
     for key, handler in (exception_handlers or {}).items():
         app.add_exception_handler(key, handler)
     if docs_url is not None and app.openapi_url is not None:
