@@ -1,7 +1,8 @@
 """SQL transaction boundaries on separate SQLite connections."""
 
 import asyncio
-from types import SimpleNamespace
+from types import CoroutineType, SimpleNamespace
+from typing import get_args, get_origin, get_type_hints
 from unittest.mock import AsyncMock
 
 import pytest
@@ -16,6 +17,11 @@ from papilio.infra.db.transaction import (
     transaction,
 )
 from papilio.infra.db.uow import SQLiteUnitOfWork, UnitOfWork
+
+
+def test_transactional_return_annotation_matches_native_async_methods():
+    annotation = get_type_hints(transactional)["return"]
+    assert get_origin(get_args(annotation)[1]) is CoroutineType
 
 
 @pytest.fixture

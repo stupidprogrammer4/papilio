@@ -1,16 +1,17 @@
 """Decorators for application database operations."""
 
 import inspect
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any
+from types import CoroutineType
+from typing import Any, cast
 
 from papilio.infra.db.transaction import transaction
 
 
 def transactional[**P, R](
     function: Callable[P, Awaitable[R]],
-) -> Callable[P, Coroutine[Any, Any, R]]:
+) -> Callable[P, CoroutineType[Any, Any, R]]:
     if not inspect.iscoroutinefunction(function):
         raise TypeError("@transactional requires an async function")
 
@@ -19,4 +20,4 @@ def transactional[**P, R](
         async with transaction():
             return await function(*args, **kwargs)
 
-    return wrapped
+    return cast(Callable[P, CoroutineType[Any, Any, R]], wrapped)
